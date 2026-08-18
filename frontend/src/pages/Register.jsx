@@ -57,10 +57,25 @@ export default function Register() {
       // Store token (if applicable)
       if (response.token) {
         localStorage.setItem('token', response.token)
+        
+        // Merge guest cart
+        try {
+          const guestCartStr = localStorage.getItem('guestCart');
+          if (guestCartStr) {
+            const guestItems = JSON.parse(guestCartStr);
+            if (guestItems && guestItems.length > 0) {
+              const { mergeCartAPI } = await import('../ApiServices/cartService');
+              await mergeCartAPI(guestItems);
+              localStorage.removeItem('guestCart'); // Clear guest cart after merge
+            }
+          }
+        } catch (mergeErr) {
+          console.error('Failed to merge cart', mergeErr);
+        }
       }
       
       // Navigate to profile on success
-      navigate('/profile')
+      window.location.href = '/profile';
     } catch (err) {
       setError(err.message || 'Registration failed. Please check the OTP and try again.')
     } finally {

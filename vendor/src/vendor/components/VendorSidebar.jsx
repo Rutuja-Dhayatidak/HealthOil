@@ -9,6 +9,7 @@ import {
   CreditCard,
   PieChart,
   Megaphone,
+  Star,
   Store, 
   FileText,
   HelpCircle, 
@@ -67,6 +68,7 @@ function VendorSidebar() {
       title: 'MARKETING',
       items: [
         { name: 'Promotions', path: '/vendor/offers', icon: Megaphone },
+        { name: 'Reviews', path: '/vendor/reviews', icon: Star },
       ]
     },
     {

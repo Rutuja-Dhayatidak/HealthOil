@@ -1,3 +1,4 @@
+import logo from '../assets/download.png'
 import sunflowerImg from '../assets/footer_sunflower.png'
 
 function Footer() {
@@ -10,17 +11,8 @@ function Footer() {
           
           {/* Logo & About Column */}
           <div className="lg:col-span-3">
-            <div className="flex items-center gap-2 mb-4">
-              {/* Droplet Leaf Logo */}
-              <div className="w-9 h-9 rounded-full bg-[#031d13] flex items-center justify-center text-[#b89547]">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-serif font-bold text-[#031d13] leading-none">PureOil</h3>
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Goodness Delivered Daily</span>
-              </div>
+            <div className="flex items-center mb-6">
+              <img src={logo} alt="HealthOil" className="h-28 w-auto object-contain" />
             </div>
             <p className="text-xs text-gray-600 leading-relaxed mb-6 max-w-xs">
               We bring you the finest cooking oils from trusted local shops, delivered fresh to your doorstep.

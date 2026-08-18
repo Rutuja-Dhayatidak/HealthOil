@@ -19,3 +19,13 @@ export const fetchPublicShopDetails = async (id) => {
     return { success: false, shop: null, products: [] };
   }
 };
+
+export const fetchPublicProducts = async () => {
+  try {
+    const response = await api.get('/public/products');
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch public products:', error);
+    return { success: false, products: [] };
+  }
+};

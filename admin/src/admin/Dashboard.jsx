@@ -33,13 +33,18 @@ export default function Dashboard({ stats = {} }) {
     { day: '17 May', sales: 700, orders: 80 },
   ]
 
-  const recentOrders = [
-    { id: '#HO125678', date: '17 May 2026, 10:30 AM', customer: 'Ravi Sharma', email: 'ravi.sharma@email.com', product: 'Cold Pressed Coconut Oil 1L', amount: '₹1,198.00', status: 'New Order', img: '🥥' },
-    { id: '#HO125677', date: '17 May 2026, 09:45 AM', customer: 'Priya Mehta', email: 'priya.mehta@email.com', product: 'Mustard Oil 1L', amount: '₹798.00', status: 'Packed', img: '🛢️' },
-    { id: '#HO125676', date: '17 May 2026, 08:15 AM', customer: 'Amit Verma', email: 'amit.verma@email.com', product: 'Olive Oil 1L', amount: '₹1,497.00', status: 'Delivered', img: '🌿' },
-    { id: '#HO125675', date: '16 May 2026, 07:30 PM', customer: 'Neha Gupta', email: 'neha.gupta@email.com', product: 'Groundnut Oil 1L', amount: '₹649.00', status: 'Cancelled', img: '🥜' },
-    { id: '#HO125674', date: '16 May 2026, 06:20 PM', customer: 'Suresh Patil', email: 'suresh.patil@email.com', product: 'Sesame Oil 1L', amount: '₹899.00', status: 'Returned', img: '🌱' },
-  ]
+  const recentOrders = (stats.recentOrders || []).map(order => ({
+    id: order.orderId || order._id,
+    date: new Date(order.createdAt).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }),
+    customer: order.user?.name || order.deliveryAddress?.name || 'Guest User',
+    email: order.user?.email || order.deliveryAddress?.phone || 'N/A',
+    product: order.items?.length > 0 ? `${order.items[0].productName} ${order.items.length > 1 ? `+${order.items.length - 1} more` : ''}` : 'Unknown Product',
+    amount: `₹${order.totalAmount}`,
+    status: order.status || 'Pending',
+    img: '📦'
+  }));
 
   const vendorVerification = [
     { name: 'Green Valley Oils', email: 'contact@greenvalleyoils.com', date: '17 May 2026', status: 'Pending', icon: '🍃' },
@@ -210,7 +215,7 @@ export default function Dashboard({ stats = {} }) {
             <div>
               <p className="text-[10px] text-gray-400 font-medium mb-1">Total Sales</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 leading-none">₹48,56,230</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 leading-none">₹{totalSales.toLocaleString('en-IN')}</h2>
                 <span className="text-xs font-bold text-green-500">▲ 18.6%</span>
                 <span className="text-[10px] text-gray-400">vs last 7 days</span>
               </div>

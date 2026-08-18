@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Eye, XCircle, CheckCircle, RefreshCcw } from 'lucide-react'
 import { StatusBadge, OrderStatusTimeline } from '../components/VendorComponents'
+import axios from 'axios'
+import { io } from 'socket.io-client'
 
 export default function Orders() {
   const [activeTab, setActiveTab] = useState('All')
@@ -8,17 +10,81 @@ export default function Orders() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectReason, setRejectReason] = useState('Item unavailable')
   const [searchQuery, setSearchQuery] = useState('')
+  const [ordersData, setOrdersData] = useState([])
 
   const tabs = ['All', 'New', 'Accepted', 'Preparing', 'Ready for Pickup', 'Picked Up', 'Delivered', 'Cancelled', 'Returned']
 
-  const ordersData = [
-    { id: '#PO-9840', customer: 'Amit Sharma', mobile: '+91 99*** *9876', product: 'Groundnut Oil (5L)', qty: 1, amount: '₹950', payment: 'COD', time: '10 mins ago', status: 'New', address: 'Apartment 402, Block A, Green Meadows, New Delhi', distance: '3.2 KM', deliveryBoy: 'Ramesh Kumar (+91 98888 77777)' },
-    { id: '#PO-9841', customer: 'Priyanka Sen', mobile: '+91 87*** *6543', product: 'Coconut Oil (2L)', qty: 2, amount: '₹1,020', payment: 'Online', time: '1 hr ago', status: 'Preparing', address: 'House 5, Street 2, Link Road, New Delhi', distance: '4.8 KM', deliveryBoy: 'Suresh Lal (+91 97777 66666)' },
-    { id: '#PO-9842', customer: 'Rajesh Kumar', mobile: '+91 76*** *5432', product: 'Mustard Oil (5L)', qty: 1, amount: '₹840', payment: 'Online', time: '05 Aug 2026', status: 'Delivered', address: 'Block D, Sector 4, Rohini, New Delhi', distance: '6.5 KM', deliveryBoy: 'Vijay Singh (+91 96666 55555)' },
-  ]
+  useEffect(() => {
+    fetchOrders()
+    
+    // Listen for new orders via socket to update table in real-time
+    const token = localStorage.getItem('vendorToken')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const vendorId = payload.id
+        
+        const socket = io('http://localhost:5000')
+        socket.emit('joinVendorRoom', vendorId)
+        
+        socket.on('new-order', (data) => {
+          // Re-fetch orders to get the updated list
+          fetchOrders()
+        })
+        
+        return () => socket.disconnect()
+      } catch (err) {
+        console.error('Socket setup error in Orders', err)
+      }
+    }
+  }, [])
 
-  const handleStatusChange = (orderId, newStatus) => {
-    setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, status: newStatus } : prev)
+  const fetchOrders = async () => {
+    try {
+      const token = localStorage.getItem('vendorToken')
+      const res = await axios.get('http://localhost:5000/api/vendors/orders', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.data.success) {
+        // Format orders for UI
+        const formatted = res.data.orders.map(o => ({
+          id: o.orderId,
+          dbId: o._id,
+          customer: o.user?.name || 'Guest',
+          mobile: o.user?.phone || o.deliveryAddress?.phone || 'N/A',
+          product: o.items.map(i => `${i.productName} (${i.qty})`).join(', '),
+          qty: o.items.reduce((sum, i) => sum + i.qty, 0),
+          amount: `₹${o.totalAmount}`,
+          payment: o.paymentMethod,
+          time: new Date(o.createdAt).toLocaleString(),
+          status: o.status,
+          address: o.deliveryAddress?.addressText || 'N/A',
+          distance: 'N/A',
+          deliveryBoy: 'N/A'
+        }))
+        setOrdersData(formatted)
+      }
+    } catch (err) {
+      console.error('Failed to fetch orders', err)
+    }
+  }
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      const token = localStorage.getItem('vendorToken')
+      const order = ordersData.find(o => o.id === orderId)
+      if (!order) return
+
+      const encodedId = encodeURIComponent(order.id);
+      await axios.put(`http://localhost:5000/api/vendors/orders/${encodedId}/status`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, status: newStatus } : prev)
+      setOrdersData(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
+    } catch (err) {
+      console.error('Failed to update status', err)
+    }
   }
 
   const handleRejectSubmit = () => {
@@ -200,6 +266,24 @@ export default function Orders() {
                   className="w-full py-3 bg-[#16A34A] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-[#16A34A]/10"
                 >
                   Mark Ready for Pickup
+                </button>
+              )}
+
+              {selectedOrder.status === 'Ready for Pickup' && (
+                <button 
+                  onClick={() => handleStatusChange(selectedOrder.id, 'Picked Up')}
+                  className="w-full py-3 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-[#002F24]/10"
+                >
+                  Mark Picked Up / Out for Delivery
+                </button>
+              )}
+
+              {selectedOrder.status === 'Picked Up' && (
+                <button 
+                  onClick={() => handleStatusChange(selectedOrder.id, 'Delivered')}
+                  className="w-full py-3 bg-[#16A34A] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-[#16A34A]/10"
+                >
+                  Mark as Delivered
                 </button>
               )}
             </div>

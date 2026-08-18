@@ -5,6 +5,9 @@ const adminRoutes = require("./routes/adminRoutes");
 const vendorRoutes = require("./routes/vendorRoutes");
 const vendorProductRoutes = require("./routes/vendorProductRoutes");
 const publicShopRoutes = require("./routes/publicShopRoutes");
+const cartRoutes = require("./routes/cartRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 
 const app = express();
 
@@ -19,6 +22,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/v1/vendor", vendorProductRoutes);
 app.use("/api/public", publicShopRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/reviews", reviewRoutes);
 app.use("/uploads", express.static("uploads"));
 
 // Test Route

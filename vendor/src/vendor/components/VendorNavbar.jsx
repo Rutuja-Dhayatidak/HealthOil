@@ -1,10 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Menu, Search, Bell, HelpCircle, User, LogOut, ShieldCheck } from 'lucide-react'
+import { io } from 'socket.io-client'
 
 function VendorNavbar({ onMenuToggle }) {
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
+
+  useEffect(() => {
+    const token = localStorage.getItem('vendorToken')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const vendorId = payload.id
+        
+        const socket = io('http://localhost:5000')
+        socket.emit('joinVendorRoom', vendorId)
+        
+        socket.on('new-order', (data) => {
+          setNotificationCount(prev => prev + 1)
+          // Optional: Show toast here
+        })
+
+        return () => socket.disconnect()
+      } catch (err) {
+        console.error('Socket setup error', err)
+      }
+    }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('vendorToken')
@@ -43,11 +67,17 @@ function VendorNavbar({ onMenuToggle }) {
         <button 
           className="relative text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
           title="Notifications"
+          onClick={() => {
+            setNotificationCount(0)
+            navigate('/vendor/orders')
+          }}
         >
           <Bell className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center border border-white">
-            3
-          </span>
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center border border-white">
+              {notificationCount}
+            </span>
+          )}
         </button>
 
         {/* Help icon */}

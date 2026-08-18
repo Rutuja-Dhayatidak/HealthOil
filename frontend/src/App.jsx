@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import Homepage from './components/Homepage'
 import Cart from './pages/Cart'
 import NearbyShops from './pages/NearbyShops'
@@ -36,6 +36,11 @@ function AppContent({ cartItems, setCartItems, handleAddToCart, cartCount, userL
             setCartItems={setCartItems}
             onBackToShop={() => navigate('/')} 
             onProceedToCheckout={() => alert('Proceeding to checkout with HealthOil payment gateway!')} 
+            cartCount={cartCount}
+            onOpenCart={() => navigate('/cart')}
+            onOpenNearbyShops={() => navigate('/nearby-shops')}
+            onOpenProfile={() => navigate('/profile')}
+            userLocation={userLocation}
           />
         } 
       />
@@ -83,42 +88,63 @@ function AppContent({ cartItems, setCartItems, handleAddToCart, cartCount, userL
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
 
 function App() {
   const [userLocation, setUserLocation] = useState('Pune, Maharashtra')
-  // Manage cart items globally
-  const [cartItems, setCartItems] = useState([
-    {
-      id: '1',
-      name: 'Kachi Ghani Pure Mustard Oil',
-      brand: 'Oli Premium',
-      variant: '5 Litre Pouch',
-      price: 850,
-      qty: 1,
-      image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&auto=format&fit=crop&q=60'
-    },
-    {
-      id: '2',
-      name: 'Cold Pressed Organic Coconut Oil',
-      brand: 'Oli Organics',
-      variant: '1 Litre Glass Bottle',
-      price: 520,
-      qty: 2,
-      image: 'https://images.unsplash.com/photo-1622484211148-716598e04144?w=200&auto=format&fit=crop&q=60'
-    }
-  ])
+  const [cartItems, setCartItems] = useState(() => {
+    const saved = localStorage.getItem('guestCart');
+    return saved ? JSON.parse(saved) : [];
+  })
 
-  const handleAddToCart = (newItem) => {
+  // Sync guest cart to local storage whenever it changes (only if no token)
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      localStorage.setItem('guestCart', JSON.stringify(cartItems));
+    }
+  }, [cartItems]);
+
+  // Fetch backend cart if logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      import('./ApiServices/cartService').then(({ getCart }) => {
+        getCart().then(res => {
+          if (res.success && res.items) {
+            setCartItems(res.items);
+          }
+        }).catch(err => console.error('Failed to load cart', err));
+      });
+    }
+  }, []);
+
+  const handleAddToCart = async (newItem) => {
+    const token = localStorage.getItem('token');
+    
+    // Optimistic UI update
     setCartItems(prev => {
-      const exists = prev.find(item => item.id === newItem.id)
+      const exists = prev.find(item => item.id === newItem.id && item.variant === newItem.variant)
       if (exists) {
-        return prev.map(item => item.id === newItem.id ? { ...item, qty: item.qty + 1 } : item)
+        return prev.map(item => 
+          (item.id === newItem.id && item.variant === newItem.variant) 
+            ? { ...item, qty: item.qty + (newItem.qty || 1) } 
+            : item
+        )
       }
       return [...prev, newItem]
-    })
+    });
+
+    if (token) {
+      try {
+        const { addToCartAPI } = await import('./ApiServices/cartService');
+        await addToCartAPI(newItem);
+      } catch (err) {
+        console.error('Failed to add to backend cart', err);
+      }
+    }
   }
 
   const cartCount = cartItems.reduce((acc, item) => acc + item.qty, 0)

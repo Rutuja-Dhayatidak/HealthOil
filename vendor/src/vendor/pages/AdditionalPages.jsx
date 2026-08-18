@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Tag, 
   Plus, 
@@ -232,37 +232,87 @@ export function Returns() {
 // 4. REVIEWS PAGE
 // ==========================================
 export function Reviews() {
-  const reviews = [
-    { customer: 'Rajesh Kumar', rating: 5, comment: 'High quality oil, delivery was extremely quick!', product: 'Cold Pressed Mustard Oil' },
-    { customer: 'Sneha Patel', rating: 4, comment: 'Good quality coconut oil, container cap was a bit tight.', product: 'Organic Coconut Cooking Oil' }
-  ]
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchReviews()
+  }, [])
+
+  const fetchReviews = async () => {
+    try {
+      const vendorDataStr = localStorage.getItem('vendorData')
+      if (!vendorDataStr) return;
+      const vendorData = JSON.parse(vendorDataStr)
+      const vendorId = vendorData.id || vendorData._id
+      
+      const res = await fetch(`http://localhost:5000/api/reviews/vendor/${vendorId}`)
+      const data = await res.json()
+      if (data.success) {
+        setReviews(data.reviews)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleFeature = async (reviewId, currentStatus) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}/feature`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isFeatured: !currentStatus })
+      })
+      const data = await res.json()
+      if (data.success) {
+        fetchReviews()
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   return (
     <div className="space-y-6 text-left">
       <div>
         <h2 className="text-xl font-serif font-bold text-[#002F24]">Customer Reviews</h2>
-        <p className="text-xs text-gray-500 mt-1">Review feedback, store ratings, and reply to customers.</p>
+        <p className="text-xs text-gray-500 mt-1">Review feedback, store ratings, and toggle which reviews appear on your shop page.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {reviews.map((rev, idx) => (
-          <div key={idx} className="bg-white border border-[#D4AF37]/20 p-5 rounded-2xl shadow-sm text-left flex flex-col justify-between">
-            <div>
-              <div className="flex justify-between items-start">
-                <span className="font-bold text-[#002F24] text-xs">{rev.customer}</span>
-                <span className="text-[#D4AF37] font-bold text-xs">{rev.rating} ★</span>
+      {loading ? (
+        <div className="text-center text-sm text-gray-500 py-10">Loading reviews...</div>
+      ) : reviews.length === 0 ? (
+        <div className="text-center text-sm text-gray-500 py-10">No reviews yet.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {reviews.map((rev) => (
+            <div key={rev._id} className="bg-white border border-[#D4AF37]/20 p-5 rounded-2xl shadow-sm text-left flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-start">
+                  <span className="font-bold text-[#002F24] text-xs">{rev.user?.name || 'Customer'}</span>
+                  <span className="text-[#D4AF37] font-bold text-xs">{rev.rating} ★</span>
+                </div>
+                <span className="text-[9px] text-gray-400 font-bold block mt-1">Product: {rev.productName}</span>
+                <p className="text-xs text-gray-605 leading-relaxed mt-3">"{rev.comment}"</p>
               </div>
-              <span className="text-[9px] text-gray-400 font-bold block mt-1">Product: {rev.product}</span>
-              <p className="text-xs text-gray-605 leading-relaxed mt-3">"{rev.comment}"</p>
+              
+              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400 font-bold">{new Date(rev.createdAt).toLocaleDateString()}</span>
+                <button 
+                  onClick={() => toggleFeature(rev._id, rev.isFeatured)}
+                  className={`font-bold text-[10px] px-3 py-1.5 rounded-xl cursor-pointer border ${rev.isFeatured ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                >
+                  {rev.isFeatured ? '★ Featured on Shop' : 'Feature on Shop'}
+                </button>
+              </div>
             </div>
-            
-            <div className="mt-5 pt-4 border-t border-gray-100 flex gap-2">
-              <input type="text" placeholder="Type response reply..." className="flex-1 bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-[#002F24]" />
-              <button className="bg-[#002F24] text-white font-bold text-[10px] px-3 py-1.5 rounded-xl cursor-pointer">Reply</button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

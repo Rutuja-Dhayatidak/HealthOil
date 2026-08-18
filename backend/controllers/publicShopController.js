@@ -127,13 +127,49 @@ exports.getPublicShopDetails = async (req, res) => {
         image: mainImageUrl || '',
         gallery: gallery,
         inStock: (variant.currentStock || 0) > 0,
-        popular: idx === 0
+        currentStock: variant.currentStock || 0,
+        popular: idx === 0,
+        variants: p.variants.map(v => ({
+          id: v._id ? v._id.toString() : Math.random().toString(),
+          size: `${v.size || ''} ${v.unit || ''}`.trim(),
+          price: v.price || 0,
+          mrp: v.mrp || v.price || 0,
+          inStock: (v.currentStock || 0) > 0,
+          currentStock: v.currentStock || 0
+        }))
       };
     });
 
     res.json({ success: true, shop, products });
   } catch (error) {
     console.error('Error fetching public shop details:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Get random or latest public products across all active vendors
+exports.getPublicProducts = async (req, res) => {
+  try {
+    const rawProducts = await VendorProduct.find().limit(8).sort({ createdAt: -1 });
+
+    const products = rawProducts.map((p, idx) => {
+      const variant = p.variants?.[0] || {};
+      const mainImageUrl = typeof p.images?.mainImage === 'object' ? p.images?.mainImage?.url : p.images?.mainImage;
+
+      return {
+        id: p._id.toString(),
+        name: p.basicDetails?.name || '',
+        brandName: p.basicDetails?.brandName || 'HealthOil',
+        size: `${variant.size || ''} ${variant.unit || ''}`.trim(),
+        mrp: variant.mrp || variant.price || 0,
+        price: variant.price || 0,
+        image: mainImageUrl || '',
+      };
+    });
+
+    res.json({ success: true, products });
+  } catch (error) {
+    console.error('Error fetching public products:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

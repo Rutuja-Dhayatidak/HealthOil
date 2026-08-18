@@ -56,8 +56,9 @@ function Products({ refreshStats }) {
   }
 
   const filteredProducts = productsList.filter(p => 
-    p.basicDetails?.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (p.vendor?.business?.storeName || p.vendor?.fullName || '').toLowerCase().includes(searchTerm.toLowerCase())
+    p.status === 'ACTIVE' &&
+    (p.basicDetails?.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (p.vendor?.business?.storeName || p.vendor?.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   return (

@@ -3,16 +3,27 @@ const MobileUser = require('../models/MobileUser');
 const Admin = require('../models/Admin');
 const Vendor = require('../models/Vendor');
 const VendorProduct = require('../models/VendorProduct');
+const Order = require('../models/Order');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const getAdminStats = async (req, res) => {
   try {
-    const totalCustomers = (await WebsiteUser.countDocuments()) + (await MobileUser.countDocuments());
-    const totalVendors = await Vendor.countDocuments();
-    const pendingVendors = await Vendor.countDocuments({ onboardingStatus: { $nin: ['APPROVED', 'REJECTED'] } });
-    const totalProducts = await VendorProduct.countDocuments();
+    const totalCustomers = await WebsiteUser.countDocuments() + await MobileUser.countDocuments();
+    const totalVendors = await Vendor.countDocuments({ vendorStatus: 'ACTIVE' });
+    const pendingVendors = await Vendor.countDocuments({ onboardingStatus: 'PENDING' });
+    const totalProducts = await VendorProduct.countDocuments({ status: 'ACTIVE' });
     const pendingProducts = await VendorProduct.countDocuments({ status: 'PENDING_APPROVAL' });
+
+    // Calculate actual orders and sales
+    const orders = await Order.find({}, 'totalAmount createdAt');
+    const totalOrders = orders.length;
+    const totalSales = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    const recentOrdersData = await Order.find({})
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(5);
 
     res.json({
       success: true,
@@ -22,7 +33,9 @@ const getAdminStats = async (req, res) => {
         vendorVerification: pendingVendors,
         products: totalProducts,
         productApproval: pendingProducts,
-        orders: 0,
+        orders: totalOrders,
+        sales: totalSales,
+        recentOrders: recentOrdersData,
         returns: 0
       }
     });
@@ -244,6 +257,20 @@ const rejectProduct = async (req, res) => {
   }
 };
 
+
+const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .populate('user', 'name phone email')
+      .populate('vendor', 'business.storeName fullName')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.error('Admin get orders error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = { 
   getAdminStats,
   getAllUsers, 
@@ -256,5 +283,6 @@ module.exports = {
   rejectVendor,
   getAllProducts,
   approveProduct,
-  rejectProduct
+  rejectProduct,
+  getAllOrders
 };

@@ -8,7 +8,7 @@ const PrivateRoute = ({ children }) => {
   const location = useLocation()
   
   if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/admin/login" state={{ from: location }} replace />
   }
   
   return children
@@ -19,9 +19,10 @@ function App() {
     <>
       <Toaster position="top-right" />
       <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/:tab" element={
+      <Route path="/admin/login" element={<Login />} />
+      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/admin/:tab" element={
         <PrivateRoute>
           <AdminPanel />
         </PrivateRoute>

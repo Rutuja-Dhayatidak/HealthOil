@@ -19,7 +19,7 @@ function Login() {
     try {
       const response = await loginAdmin(email, password);
       if (response.success) {
-        const origin = location.state?.from?.pathname || '/dashboard';
+        const origin = location.state?.from?.pathname || '/admin/dashboard';
         navigate(origin, { replace: true });
       }
     } catch (err) {

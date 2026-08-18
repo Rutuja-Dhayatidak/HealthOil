@@ -1,16 +1,32 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, MapPin, ShieldCheck, Clock, Star, Phone, ShoppingCart, Plus, Minus, Shield, CreditCard, Truck, Award, ShoppingBag } from 'lucide-react'
+import { 
+  ArrowLeft, MapPin, ShieldCheck, Clock, Star, Phone, ShoppingCart, 
+  Plus, Minus, Shield, CreditCard, Truck, Award, ShoppingBag, Search, ChevronRight, Navigation,
+  Store, LayoutGrid, RotateCcw, ArrowRight
+} from 'lucide-react'
 import bannerBg from '../assets/image copy.png'
 import Navbar from '../components/Navbar'
 import ProductDetailsDrawer from '../components/ProductDetailsDrawer'
 import { fetchPublicShopDetails } from '../ApiServices/publicShopService'
+import { reviewService } from '../ApiServices/reviewService'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+
+// Fix Leaflet's default icon path issues in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops, onAddToCart, cartCount, onOpenCart, onOpenNearbyShops, onOpenProfile }) {
   const [shop, setShop] = useState(initialShopProps)
   const [productsList, setProductsList] = useState([])
+  const [shopReviews, setShopReviews] = useState([])
   const [loading, setLoading] = useState(false)
-  const [activeFilter, setActiveFilter] = useState('All')
-  const [sortBy, setSortBy] = useState('Popular')
+  const [activeFilter, setActiveFilter] = useState('All Products')
   const [quantities, setQuantities] = useState({})
   const [addedItemIds, setAddedItemIds] = useState([])
   const [selectedProductForDrawer, setSelectedProductForDrawer] = useState(null)
@@ -26,8 +42,35 @@ export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops,
         if (res.shop) {
           setShop(prev => ({ ...prev, ...res.shop }))
         }
-        setProductsList(res.products || [])
+        
+        // Mock data enhancement for visual matching
+        const enhancedProducts = (res.products || []).map(p => ({
+          ...p,
+          mrp: p.mrp || Math.floor(p.price * 1.2),
+          discount: p.discount || Math.floor(Math.random() * 10 + 10),
+          reviews: p.reviews || Math.floor(Math.random() * 200 + 50),
+          rating: p.rating || (Math.random() * 0.5 + 4.5).toFixed(1)
+        }))
+        
+        setProductsList(enhancedProducts.length ? enhancedProducts : [
+          { id: '1', name: 'Cold Pressed Coconut Oil', size: '500 ml', price: 299, mrp: 349, discount: 14, rating: 4.7, reviews: 210, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
+          { id: '2', name: 'Cold Pressed Mustard Oil', size: '1 L', price: 229, mrp: 269, discount: 15, rating: 4.6, reviews: 185, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
+          { id: '3', name: 'Extra Virgin Olive Oil', size: '500 ml', price: 499, mrp: 599, discount: 17, rating: 4.7, reviews: 162, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
+          { id: '4', name: 'Cold Pressed Sesame Oil', size: '1 L', price: 279, mrp: 399, discount: 15, rating: 4.6, reviews: 139, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' }
+        ])
       }
+      
+      // Fetch reviews
+      try {
+        const vendorId = initialShopProps.id || initialShopProps._id;
+        const revData = await reviewService.getShopReviews(vendorId);
+        if (revData.success) {
+          setShopReviews(revData.reviews);
+        }
+      } catch (err) {
+        console.error('Failed to load reviews');
+      }
+
       setLoading(false)
     }
 
@@ -36,16 +79,11 @@ export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops,
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-[#FAF4E8] text-[#15251F] font-sans flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-[#D4AF37]/25 max-w-md w-full">
-          <h2 className="text-2xl font-serif font-bold text-[#002F24] mb-3">No Shop Selected</h2>
-          <p className="text-gray-500 text-sm mb-6">Please select a shop from the nearby shops directory to view its details.</p>
-          <button 
-            onClick={onBackToShops}
-            className="w-full h-11 bg-[#002F24] hover:bg-[#014D3A] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#D4AF37]" />
-            Back to Directory
+      <div className="min-h-screen bg-[#fafaf9] flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-md w-full">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">No Shop Selected</h2>
+          <button onClick={onBackToShops} className="w-full h-11 bg-[#005c4a] text-white font-bold rounded-xl flex items-center justify-center gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to Directory
           </button>
         </div>
       </div>
@@ -69,7 +107,8 @@ export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops,
       variant: product.size,
       price: product.price,
       qty: qty,
-      image: product.image
+      image: product.image,
+      vendorId: shop.id || shop._id
     })
     
     setAddedItemIds(prev => [...prev, product.id])
@@ -78,393 +117,456 @@ export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops,
     }, 2000)
   }
 
-  // Filter application
-  const activeProducts = productsList || []
-  const filteredProducts = activeProducts.filter(p => {
-    if (activeFilter === 'All') return true
-    if (activeFilter === 'Cold Pressed') return p.pressedType === 'Cold Pressed'
-    if (activeFilter === 'Refined') return p.pressedType === 'Refined'
-    if (activeFilter === '1 Litre') return p.size.includes('1 Litre')
-    if (activeFilter === 'Popular') return p.popular
-    return true
-  })
-
-  // Dynamic Logo extraction helpers
-  const logoInitial = (shop.name || 'O').charAt(0)
-  const brandWords = (shop.name || 'Oli').split(' ')
-  const brandMain = brandWords[0] || 'Oli'
-  const brandSub = brandWords.slice(1).join(' ') || 'Organic Oils'
-
   const bannerImage = shop.banner || shop.image || bannerBg
+  
+  const shopLat = shop.pickupAddress?.lat || shop.lat || 12.9121;
+  const shopLng = shop.pickupAddress?.lng || shop.lng || 77.6446;
 
   return (
-    <div className="min-h-screen bg-[#FAF4E8] text-[#15251F] font-sans selection:bg-[#D4AF37] selection:text-[#002F24] overflow-x-hidden text-left">
+    <div className="min-h-screen bg-[#fcfdfc] text-[#1a1a1a] font-sans selection:bg-[#005c4a]/20 animate-landing">
       <Navbar cartCount={cartCount} onOpenCart={onOpenCart} onOpenNearbyShops={onOpenNearbyShops} onOpenProfile={onOpenProfile} />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
         
-        {/* Navigation back */}
-        <button 
-          onClick={onBackToShops}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#002F24] transition-colors mb-4 cursor-pointer group"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#D4AF37] group-hover:-translate-x-0.5 transition-transform" />
-          Back to Shops Directory
-        </button>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-[11px] md:text-xs font-medium text-gray-500 mb-4">
+          <button onClick={onBackToShops} className="hover:text-[#005c4a] transition-colors cursor-pointer">Home</button>
+          <span>/</span>
+          <button onClick={onBackToShops} className="hover:text-[#005c4a] transition-colors cursor-pointer">Nearby Shops</button>
+          <span>/</span>
+          <span className="text-[#005c4a] font-bold">{shop.name}</span>
+        </div>
 
-        {/* Shop details banner card wrapper */}
-        <div 
-          className="bg-cover bg-center rounded-none overflow-hidden relative border-2 border-[#D4AF37]/25 min-h-[300px] lg:min-h-[250px] flex flex-col justify-between p-5 md:p-6 pb-[96px] lg:pb-[68px] shadow-sm mb-8"
-          style={{ backgroundImage: `url(${bannerImage})` }}
-        >
-          {/* Tint Overlay */}
-          <div className="absolute inset-0 bg-[#001c13]/60 z-0" />
+        {/* Hero Section */}
+        <div className="flex flex-col lg:flex-row gap-5 mb-6">
+          {/* Left: Banner & Info Card */}
+          <div className="lg:flex-[2] relative rounded-none overflow-hidden h-[240px] md:h-[280px]">
+            <img src={bannerImage} alt="Banner" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/20"></div>
 
-          {/* Banner Contents Top Row */}
-          <div className="relative z-10 flex flex-col md:flex-row gap-5 items-center justify-between w-full flex-1">
-            <div className="flex gap-5 items-center">
-              {/* White Square Logo Container */}
-              <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-2xl flex items-center justify-center p-3 border border-[#D4AF37]/35 shadow-md shrink-0 select-none overflow-hidden">
-                {shop.logo ? (
-                  <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover rounded-xl" />
+            {/* Floating Info Card */}
+            <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:w-[600px] bg-white rounded-none p-4 shadow-lg flex flex-col md:flex-row gap-4">
+              <div className="w-20 h-20 md:w-28 md:h-28 rounded-none overflow-hidden shrink-0 border border-gray-100 shadow-sm relative group">
+                 {shop.logo ? (
+                  <img src={shop.logo} alt={shop.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="border border-[#D4AF37] rounded-full w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center relative">
-                      <span className="font-serif text-[#002F24] font-extrabold text-lg sm:text-xl leading-none">{logoInitial}</span>
-                      <span className="absolute -bottom-1.5 text-[8px] sm:text-[9px]">🌿</span>
-                    </div>
-                    <span className="text-[9px] sm:text-[10px] font-bold text-[#002F24] tracking-wider mt-1.5 uppercase leading-none">{brandMain}</span>
-                    <span className="text-[5px] sm:text-[6px] text-gray-400 tracking-widest uppercase mt-0.5 leading-none">{brandSub}</span>
+                  <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-2xl font-bold text-[#005c4a]">
+                    {shop.name.charAt(0)}
                   </div>
                 )}
-              </div>
-
-              {/* Title & Status */}
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl sm:text-3xl font-serif font-bold text-white tracking-tight leading-tight">{shop.name}</h1>
-                  <span className="px-2 py-0.5 rounded-full text-[8px] font-extrabold border border-emerald-400 text-emerald-300 bg-emerald-950/30 uppercase tracking-wider shrink-0">
-                    ● OPEN NOW
-                  </span>
+                {/* Verified Badge overlay on image */}
+                <div className="absolute bottom-1 left-1 right-1 bg-white/95 backdrop-blur py-0.5 rounded flex items-center justify-center gap-1 shadow-sm">
+                  <ShieldCheck className="w-3 h-3 text-[#005c4a]" />
+                  <span className="text-[8px] font-bold text-[#005c4a]">Verified</span>
                 </div>
-                <p className="text-[10px] sm:text-xs text-gray-300 mt-1 font-bold">Managed by: {shop.owner}</p>
               </div>
-            </div>
 
-            {/* Right frame banner badge */}
-            <div className="hidden lg:flex border border-[#D4AF37]/35 rounded-xl px-5 py-3 flex-col items-center justify-center bg-black/20 backdrop-blur-sm shrink-0 select-none">
-              <span className="font-serif text-[#D4AF37] tracking-widest text-base font-bold uppercase">{shop.name}</span>
-              <div className="w-12 h-[1px] bg-[#D4AF37]/60 my-1" />
-              <span className="text-[7.5px] text-[#D4AF37]/80 uppercase tracking-[0.25em]">{shop.specialty || 'Organic Oils'}</span>
+              <div className="flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-900">{shop.name}</h1>
+                    <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-100">
+                      <ShieldCheck className="w-3 h-3" /> Verified Seller
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs mb-2.5">
+                    <div className="flex items-center gap-1 text-yellow-500">
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      <span className="text-gray-700 font-bold ml-1">{shop.rating || '4.6'}</span>
+                      <span className="text-gray-400">({shop.reviews || 248} reviews)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-medium text-gray-600 mb-2.5">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400" /> {shop.distance || '2.1'} km
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" /> 20-30 mins
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded font-bold uppercase text-[9px] tracking-wide">Open</span>
+                      <span className="text-gray-400">Closes at 10:00 PM</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] md:text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
+                    {shop.description || 'Premium and cold pressed oils made from carefully selected natural seeds for a healthier lifestyle.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 mt-3 w-full">
+                  <button className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors">
+                    <Navigation className="w-3.5 h-3.5 text-gray-400" /> Get Directions
+                  </button>
+                  <button className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors">
+                    <Phone className="w-3.5 h-3.5 text-gray-400" /> Contact Shop
+                  </button>
+                  <button className="flex-[1.2] py-2 rounded-lg bg-[#005c4a] text-white font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-[#004d40] shadow-sm transition-colors">
+                    <Store className="w-3.5 h-3.5" /> Visit Store
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Banner Contents Bottom Row (Metadata Strip) */}
-          <div className="absolute bottom-0 left-0 right-0 bg-[#07130f]/90 border-t border-[#D4AF37]/20 px-6 py-2.5 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between z-10 w-full">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] text-gray-200">
-              
-              {/* Address */}
-              <div className="flex items-center gap-2 text-left">
-                <MapPin className="w-4.5 h-4.5 text-[#D4AF37] shrink-0" />
-                <div className="text-left leading-tight">
-                  <span className="block font-bold">{shop.address.split(',')[0]}</span>
-                  <span className="block text-gray-400 text-[8px]">{shop.address.split(',').slice(1).join(',')}</span>
-                </div>
-              </div>
-              
-              <div className="hidden lg:block border-r border-white/10 h-8" />
-
-              {/* Distance */}
-              <div className="flex items-center gap-2 text-left">
-                <span className="text-sm text-[#D4AF37]">🗺️</span>
-                <div className="leading-tight">
-                  <span className="block font-bold text-white">{shop.distance} KM</span>
-                  <span className="block text-gray-400 text-[8px]">Away</span>
-                </div>
-              </div>
-
-              <div className="hidden lg:block border-r border-white/10 h-8" />
-
-              {/* Rating */}
-              <div className="flex items-center gap-2 text-left">
-                <Star className="w-4.5 h-4.5 fill-[#D4AF37] text-[#D4AF37] shrink-0" />
-                <div className="leading-tight">
-                  <span className="block font-bold text-white">{shop.rating}</span>
-                  <span className="block text-gray-400 text-[8px]">({shop.reviews} reviews)</span>
-                </div>
-              </div>
-
-              <div className="hidden lg:block border-r border-white/10 h-8" />
-
-              {/* FSSAI */}
-              <div className="flex items-center gap-2 text-left">
-                <ShieldCheck className="w-4.5 h-4.5 text-[#D4AF37] shrink-0" />
-                <div className="leading-tight flex items-center gap-1">
-                  <div>
-                    <span className="block font-bold text-white">FSSAI</span>
-                    <span className="block text-gray-400 text-[8px]">Certified</span>
-                  </div>
-                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[7.5px] font-bold">✓</span>
-                </div>
-              </div>
-
-              <div className="hidden lg:block border-r border-white/10 h-8" />
-
-              {/* Clock */}
-              <div className="flex items-center gap-2 text-left">
-                <Clock className="w-4.5 h-4.5 text-[#D4AF37] shrink-0" />
-                <div className="leading-tight">
-                  <span className="block font-bold text-white">9:00 AM - 9:00 PM</span>
-                  <span className="block text-gray-400 text-[8px]">Everyday</span>
-                </div>
-              </div>
+          {/* Right: Map Box */}
+          <div className="lg:flex-1 bg-[#f8f9f8] rounded-none border border-gray-200 p-4 flex flex-col justify-between">
+            <div className="w-full h-[140px] md:h-[180px] rounded-none bg-gray-200 overflow-hidden relative mb-4 z-0">
+              <MapContainer center={[shopLat, shopLng]} zoom={14} scrollWheelZoom={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Marker position={[shopLat, shopLng]} />
+              </MapContainer>
             </div>
 
-            {/* Action pill buttons */}
-            <div className="flex items-center gap-2.5 w-full lg:w-auto justify-end shrink-0">
-              <a 
-                href={`tel:${shop.phone}`}
-                className="h-8 px-4 rounded-xl bg-[#002f24] hover:bg-[#014D3A] text-white border border-[#D4AF37] text-xs font-bold transition-all shadow flex items-center justify-center gap-1.5 w-full lg:w-auto"
-              >
-                <Phone className="w-3.5 h-3.5 text-[#D4AF37]" />
-                Call Shop
-              </a>
-              <button className="h-8 px-4 rounded-xl bg-white hover:bg-gray-50 text-[#002F24] border border-gray-200 text-xs font-bold transition-all shadow flex items-center justify-center gap-1.5 w-full lg:w-auto cursor-pointer">
-                <span className="text-[#D4AF37] font-semibold text-xs">🔗</span>
-                Share
+            <div>
+              <div className="flex items-start gap-2 mb-1">
+                <MapPin className="w-4 h-4 text-[#005c4a] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900">{shop.name}</h4>
+                  <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                    {shop.address || '17th Cross, HSR Layout, Sector 2, Bengaluru, Karnataka 560102'}
+                  </p>
+                </div>
+              </div>
+              <button className="text-[11px] font-bold text-[#005c4a] hover:underline flex items-center gap-1 mt-3 ml-6">
+                View larger map <ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </div>
         </div>
-        
-        {/* Shop Description & Social Links */}
-        {(shop.description || shop.socialLinks?.facebook || shop.socialLinks?.instagram || shop.socialLinks?.youtube) && (
-          <div className="bg-white rounded-none p-5 md:p-6 border border-[#D4AF37]/15 shadow-sm mb-6 flex flex-col md:flex-row gap-6 justify-between">
-            <div className="flex-1">
-              <h3 className="font-serif font-bold text-lg text-[#002F24] mb-2 flex items-center gap-2">
-                <span className="text-[#D4AF37]">✦</span> About {shop.name}
-              </h3>
-              {shop.description && (
-                <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{shop.description}</p>
-              )}
+
+        {/* Main Content Layout */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          
+          {/* Left Sidebar */}
+          <div className="w-full lg:w-[260px] shrink-0 flex flex-col gap-4">
+            {/* Info Widget */}
+            <div className="bg-[#fcfdfc] border border-gray-100 rounded-none p-4 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-900 mb-4 flex items-center gap-2"><span className="text-gray-400">ⓘ</span> Shop Information</h3>
+              <div className="space-y-3 text-[11px]">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Business Type</span>
+                  <span className="font-medium text-gray-900">{shop.businessType || 'Retail Store'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Since</span>
+                  <span className="font-medium text-gray-900">{shop.establishedYear || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Speciality</span>
+                  <span className="font-medium text-gray-900 line-clamp-1 text-right ml-4">{shop.specialty || 'General'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">GSTIN</span>
+                  <span className="font-medium text-gray-900">{shop.gstin || 'Not Provided'}</span>
+                </div>
+              </div>
             </div>
-            {Object.values(shop.socialLinks || {}).some(link => link) && (
-              <div className="md:w-64 shrink-0 flex flex-col gap-3 border-l-0 md:border-l border-[#D4AF37]/20 md:pl-6">
-                <h4 className="font-bold text-xs text-[#002F24] uppercase tracking-wider">Follow Us</h4>
-                <div className="flex items-center gap-3">
-                  {shop.socialLinks?.facebook && (
-                    <a href={shop.socialLinks.facebook} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-[#FAF6EC] flex items-center justify-center text-[#002F24] hover:bg-[#D4AF37] hover:text-white transition-colors border border-[#D4AF37]/30">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/></svg>
-                    </a>
-                  )}
-                  {shop.socialLinks?.instagram && (
-                    <a href={shop.socialLinks.instagram} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-[#FAF6EC] flex items-center justify-center text-[#002F24] hover:bg-[#D4AF37] hover:text-white transition-colors border border-[#D4AF37]/30">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.64-.07-4.85s.01-3.58.07-4.85C2.38 3.85 3.89 2.3 7.15 2.23c1.27-.06 1.64-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07c-4.35.2-6.78 2.62-6.98 6.98C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.36 2.62 6.78 6.98 6.98 1.28.06 1.69.07 4.95.07s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98C24 15.67 24 15.26 24 12s-.01-3.67-.07-4.95c-.2-4.35-2.62-6.78-6.98-6.98C15.67.01 15.26 0 12 0zm0 5.83a6.17 6.17 0 1 0 0 12.34 6.17 6.17 0 0 0 0-12.34zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.84-10.4a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0z"/></svg>
-                    </a>
-                  )}
-                  {shop.socialLinks?.youtube && (
-                    <a href={shop.socialLinks.youtube} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-full bg-[#FAF6EC] flex items-center justify-center text-[#002F24] hover:bg-[#D4AF37] hover:text-white transition-colors border border-[#D4AF37]/30">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM9.5 15.5v-7l6.5 3.5-6.5 3.5z"/></svg>
-                    </a>
-                  )}
+
+            {/* Hours Widget */}
+            <div className="bg-[#fcfdfc] border border-gray-100 rounded-none p-4 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-900 mb-4 flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-gray-400" /> Opening Hours</h3>
+              <div className="space-y-3 text-[11px]">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Monday - Saturday</span>
+                  <span className="font-medium text-gray-900">{shop.weekdayHours || '9:00 AM — 9:00 PM'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Sunday</span>
+                  <span className="font-medium text-gray-900">{shop.sundayHours || 'Closed'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Delivery Widget */}
+            <div className="bg-[#fcfdfc] border border-gray-100 rounded-none p-4 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-900 mb-4 flex items-center gap-2"><Truck className="w-3.5 h-3.5 text-[#005c4a]" /> Delivery Info</h3>
+              <div className="space-y-3 text-[11px]">
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Delivery Time</span>
+                  <span className="font-medium text-gray-900">{shop.deliveryTime || 'Varies'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <span className="text-gray-500">Min. Order</span>
+                  <span className="font-medium text-gray-900">{shop.minOrder ? `₹${shop.minOrder}` : 'No Minimum'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Delivery Fee</span>
+                  <span className="font-bold text-[#005c4a]">{shop.deliveryFee ? `₹${shop.deliveryFee}` : 'Dynamic'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Categories Widget */}
+            {shop.categories && shop.categories.length > 0 && (
+              <div className="bg-[#fcfdfc] border border-gray-100 rounded-none p-4 shadow-sm">
+                <h3 className="text-xs font-bold text-gray-900 mb-4 flex items-center gap-2"><LayoutGrid className="w-3.5 h-3.5 text-gray-400" /> Available Categories</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {shop.categories.map(cat => (
+                    <div key={cat} className="border border-gray-200 rounded-none text-center py-2 px-1 text-[10px] font-semibold text-gray-600 hover:border-[#005c4a] hover:text-[#005c4a] cursor-pointer transition-colors line-clamp-1">
+                      {cat}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </div>
-        )}
 
-        {/* Product Catalog Section */}
-        <div className="bg-white rounded-none p-5 md:p-6 border border-[#D4AF37]/15 shadow-sm mb-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-6 w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-              <div className="flex items-center gap-3">
-                <ShoppingBag className="w-6 h-6 text-[#b08b35] shrink-0" />
-                <h2 className="text-xl font-serif font-bold text-[#002F24] tracking-tight">Shop Products</h2>
-              </div>
-
-              {/* Filters Navigation Pills */}
-              <div className="flex flex-wrap items-center gap-2">
-                {['All', 'Cold Pressed', 'Refined', '1 Litre', 'Popular'].map((tab) => (
+          {/* Right Main Content */}
+          <div className="flex-1 flex flex-col gap-6">
+            
+            {/* Top Bar (Tabs + Search) */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar w-full md:w-auto pb-2 md:pb-0">
+                {['All Products', 'Edible Oils', 'Hair Oils', 'Essential Oils', 'Ayurvedic Oils', 'Cold Pressed'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveFilter(tab)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
-                      activeFilter === tab 
-                        ? 'bg-[#002F24] text-white shadow-sm' 
-                        : 'bg-[#FAF6EC] text-gray-600 hover:bg-[#efe7d3]'
+                    className={`px-4 py-2 rounded-none text-xs font-bold transition-all whitespace-nowrap border ${
+                      activeFilter === tab
+                        ? 'bg-[#005c4a] text-white border-[#005c4a]'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#005c4a]'
                     }`}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
+              <div className="relative w-full md:w-64 shrink-0">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  placeholder="Search in this shop..." 
+                  className="w-full h-10 pl-9 pr-4 rounded-none border border-gray-200 text-xs font-medium focus:outline-none focus:border-[#005c4a] transition-colors bg-[#f8f9f8]"
+                />
+              </div>
             </div>
 
-            {/* Sort Filter Selector */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-gray-400">Sort by:</span>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[#FAF6EC] text-[#002F24] outline-none font-bold py-1.5 px-3 rounded-xl border border-gray-200/60 cursor-pointer"
-              >
-                <option value="Popular">Popular</option>
-                <option value="PriceLow">Price: Low to High</option>
-                <option value="PriceHigh">Price: High to Low</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Products Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => {
-              const isAdded = addedItemIds.includes(product.id)
-              const qty = quantities[product.id] || 1
-              return (
-                <div 
-                  key={product.id}
-                  className="bg-[#FAF6EC] border border-gray-100 hover:border-[#D4AF37]/35 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group text-left"
-                >
-                  {/* Main Info Row (Image Left, Text Right) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+              {productsList.map((product) => {
+                const isAdded = addedItemIds.includes(product.id)
+                const qty = quantities[product.id] || 1
+                return (
                   <div 
-                    className="flex gap-5 cursor-pointer"
+                    key={product.id}
+                    className="bg-white border border-gray-100 rounded-none p-3 sm:p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-[#005c4a]/20 transition-all duration-300 flex flex-col relative group cursor-pointer"
                     onClick={() => setSelectedProductForDrawer(product)}
                   >
-                    {/* Left Column: Product Image */}
-                    <div className="w-[120px] sm:w-[140px] h-[170px] bg-transparent flex items-center justify-center shrink-0 overflow-hidden relative">
-                      {product.image ? (
-                        <img 
-                          src={product.image} 
-                          alt={product.name} 
-                          className="h-full object-contain group-hover:scale-105 transition-transform duration-300" 
-                        />
-                      ) : (
-                        <div className="h-4/5 w-4/5 bg-[#002F24]/5 rounded-xl border border-[#D4AF37]/20 flex flex-col items-center justify-center">
-                          <span className="text-2xl mb-1">🛢️</span>
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">No Image</span>
-                        </div>
-                      )}
+                    {/* Image Area */}
+                    <div className="w-full h-[140px] sm:h-[180px] mb-4 bg-[#f8f9f8] rounded-none relative flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={product.image} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover mix-blend-multiply group-hover:scale-110 transition-transform duration-500" 
+                      />
                     </div>
 
-                    {/* Right Column: Details & Pricing */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div>
-                        {/* Category Tag */}
-                        <span className="inline-block bg-emerald-50 text-emerald-700 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider mb-1.5">
-                          {product.pressedType}
-                        </span>
-
-                        {/* Title */}
-                        <h3 className="font-serif font-bold text-[#002F24] text-sm sm:text-base leading-snug line-clamp-2">{product.name}</h3>
-                        
-                        {/* Volume */}
-                        <span className="text-[10px] text-gray-400 font-bold block mt-1">{product.size}</span>
-                        
-                        {/* Description */}
-                        <p className="text-[10px] text-gray-500 mt-2 line-clamp-2 leading-relaxed">{product.description}</p>
+                    {/* Content Area */}
+                    <div className="flex-1 flex flex-col text-left">
+                      <h3 className="font-bold text-gray-900 text-xs sm:text-[15px] leading-tight line-clamp-2 group-hover:text-[#005c4a]">
+                        {product.name}
+                      </h3>
+                      <span className="text-[11px] text-gray-500 mt-1 block font-medium">{product.size}</span>
+                      
+                      <div className="flex items-center gap-1.5 mt-2.5 mb-3 text-[10px] sm:text-[11px]">
+                        <div className="flex items-center text-yellow-500">
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                        </div>
+                        <span className="font-bold text-gray-700">{product.rating}</span>
+                        <span className="text-gray-400">({product.reviews})</span>
                       </div>
 
-                      {/* Pricing and Stock Row */}
-                      <div className="mt-3 flex items-center justify-between">
-                        <div>
-                          <span className="text-gray-400 line-through text-[10px]">₹{product.mrp}</span>
-                          <span className="text-base font-bold text-[#002F24] block -mt-0.5">₹{product.price}</span>
+                      <div className="mt-auto flex flex-col gap-1 mb-4">
+                        <div className="flex items-end gap-2.5">
+                          <span className="text-[17px] font-extrabold text-gray-900">₹{product.price}</span>
+                          <span className="text-[11px] text-gray-400 line-through mb-0.5">₹{product.mrp}</span>
                         </div>
-                        <span className="bg-emerald-50 text-emerald-700 text-[8px] font-extrabold px-2 py-0.5 rounded-md tracking-wider uppercase">
+                        <span className="bg-emerald-50 text-emerald-700 text-[9px] font-extrabold px-2.5 py-0.5 rounded-none w-max tracking-wide uppercase border border-emerald-100 mt-1">
                           In Stock
                         </span>
                       </div>
+
+                      <div className="flex items-center gap-2 w-full">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddToCartClick(product)
+                          }}
+                          className="w-10 h-10 rounded-none border-2 border-gray-100 text-[#005c4a] flex items-center justify-center hover:bg-[#005c4a] hover:border-[#005c4a] hover:text-white transition-all shrink-0"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddToCartClick(product)
+                          }}
+                          disabled={isAdded}
+                          className={`flex-1 h-10 rounded-none font-bold text-xs flex items-center justify-center transition-all shadow-sm ${
+                            isAdded ? 'bg-emerald-600 text-white border border-emerald-600' : 'bg-[#005c4a] text-white hover:bg-[#004d40] border border-[#005c4a]'
+                          }`}
+                        >
+                          {isAdded ? 'Added' : 'Buy Now'}
+                        </button>
+                      </div>
                     </div>
                   </div>
+                )
+              })}
+            </div>
 
-                  {/* Actions Row at Bottom */}
-                  <div className="mt-4 flex items-center gap-3 w-full border-t border-gray-50 pt-3">
-                    {/* Quantity selector pill */}
-                    <div className="flex items-center border border-gray-200 rounded-xl px-2.5 py-1 bg-gray-50 shrink-0">
-                      <button 
-                        onClick={() => handleQtyChange(product.id, -1)}
-                        className="p-0.5 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-xs font-bold text-[#002F24] px-3">{qty}</span>
-                      <button 
-                        onClick={() => handleQtyChange(product.id, 1)}
-                        className="p-0.5 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    {/* Add Button */}
-                    <button 
-                      onClick={() => handleAddToCartClick(product)}
-                      disabled={isAdded}
-                      className={`flex-1 h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
-                        isAdded 
-                          ? 'bg-emerald-600 text-white' 
-                          : 'bg-[#002F24] hover:bg-[#014D3A] text-white'
-                      }`}
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      {isAdded ? 'Added!' : 'Add to Cart'}
-                    </button>
-                  </div>
-
+            {/* Bottom Section: Reviews & You may also like */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              
+              {/* Customer Reviews snippet */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-gray-900">Customer Reviews ({shopReviews.length})</h3>
+                  {shopReviews.length > 0 && <button className="text-[11px] font-bold text-[#005c4a] hover:underline">View All Reviews</button>}
                 </div>
-              )
-            })}
+                <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+                  {shopReviews.length === 0 ? (
+                     <div className="text-[11px] text-gray-500 italic p-4">No featured reviews yet for this shop.</div>
+                  ) : shopReviews.map((rev) => (
+                    <div key={rev._id} className="min-w-[200px] bg-white border border-gray-100 rounded-xl p-3 text-left shadow-sm flex flex-col justify-between">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                           <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${rev.user?.name || 'User'}`} alt="avatar" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1">
+                            <h4 className="text-[10px] font-bold text-gray-900 line-clamp-1">{rev.user?.name || 'Anonymous User'}</h4>
+                            <ShieldCheck className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                          </div>
+                          <div className="flex items-center gap-1 text-[8px]">
+                            <div className="flex text-yellow-500">
+                               {[...Array(rev.rating || 5)].map((_,j)=><Star key={j} className="w-2 h-2 fill-current"/>)}
+                            </div>
+                            <span className="text-gray-400">• {new Date(rev.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-gray-600 line-clamp-3 leading-relaxed">"{rev.comment}"</p>
+                      <p className="text-[8px] text-[#005c4a] mt-1 font-bold">Purchased: {rev.productName}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* You may also like snippet */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-gray-900">You may also like</h3>
+                  <button className="text-[11px] font-bold text-[#005c4a] hover:underline">View All</button>
+                </div>
+                <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+                  {[
+                    {name: 'PureDrop Store', rating: 4.5, reviews: 186, distance: '2.6', time: '20-30 mins'},
+                    {name: 'Shree Ayur Oils', rating: 4.7, reviews: 234, distance: '2.4', time: '25-30 mins'},
+                    {name: 'Fresh Press Oils', rating: 4.6, reviews: 153, distance: '2.9', time: '30-40 mins'}
+                  ].map((like, i) => (
+                    <div key={i} className="min-w-[220px] bg-white border border-gray-100 rounded-xl p-3 flex gap-3 shadow-sm">
+                      <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden shrink-0">
+                         <img src={`https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=200&sig=${i}`} alt="shop" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1 flex flex-col text-left">
+                        <h4 className="text-[11px] font-bold text-gray-900 truncate">{like.name}</h4>
+                        <div className="flex items-center gap-1 text-[9px] mt-0.5">
+                          <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
+                          <span className="font-bold text-gray-700">{like.rating}</span>
+                          <span className="text-gray-400">({like.reviews})</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 mt-1">
+                           {like.distance} km • {like.time}
+                        </div>
+                        <button className="mt-auto py-1 bg-[#005c4a] text-white text-[9px] font-bold rounded-lg hover:bg-[#004d40]">
+                          View Shop
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
           </div>
         </div>
-
-        {/* Highlight Trust Footer */}
-        <div className="border border-[#D4AF37]/35 rounded-none bg-white px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-6 text-left shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#FAF4E8] flex items-center justify-center text-[#002F24] border border-[#D4AF37]/20 shrink-0">
-              <Award className="w-5 h-5 text-[#D4AF37]" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-[#002F24] block">Pure Oils</span>
-              <span className="text-[9px] text-gray-400 block mt-0.5">100% Pure & Natural Oils</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 border-l-0 sm:border-l border-gray-100 sm:pl-6">
-            <div className="w-10 h-10 rounded-full bg-[#FAF4E8] flex items-center justify-center text-[#002F24] border border-[#D4AF37]/20 shrink-0">
-              <Shield className="w-5 h-5 text-[#D4AF37]" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-[#002F24] block">Secure Payments</span>
-              <span className="text-[9px] text-gray-400 block mt-0.5">100% Safe & Secure Checkout</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 border-l-0 md:border-l border-gray-100 md:pl-6">
-            <div className="w-10 h-10 rounded-full bg-[#FAF4E8] flex items-center justify-center text-[#002F24] border border-[#D4AF37]/20 shrink-0">
-              <Truck className="w-5 h-5 text-[#D4AF37]" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-[#002F24] block">Fast Delivery</span>
-              <span className="text-[9px] text-gray-400 block mt-0.5">Quick & Reliable Delivery</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 border-l-0 sm:border-l border-gray-100 sm:pl-6">
-            <div className="w-10 h-10 rounded-full bg-[#FAF4E8] flex items-center justify-center text-[#002F24] border border-[#D4AF37]/20 shrink-0">
-              <CreditCard className="w-5 h-5 text-[#D4AF37]" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-[#002F24] block">Trusted Sellers</span>
-              <span className="text-[9px] text-gray-400 block mt-0.5">Quality Shops You Can Trust</span>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-      {/* Product Details Slide-out Drawer */}
+      {/* Bottom Features Banner */}
+      <div className="bg-[#fcfdfc] border-t border-gray-200 mt-12 py-8">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Verified Sellers</h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">All shops are verified & trusted</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Quality Guaranteed</h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">100% pure & lab tested oils</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Fast Delivery</h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">Quick delivery from nearby shops</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Secure Payments</h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">Safe & encrypted transactions</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Easy Returns</h4>
+                <p className="text-[11px] text-gray-500 mt-0.5">Hassle-free returns</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <ProductDetailsDrawer 
         product={selectedProductForDrawer} 
+        shop={shop}
         isOpen={!!selectedProductForDrawer} 
         onClose={() => setSelectedProductForDrawer(null)} 
         onAddToCart={(item) => {

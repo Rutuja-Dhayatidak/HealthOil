@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
 // Import Layouts
@@ -51,7 +51,7 @@ function ProtectedRoute({ children }) {
 
 function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Routes>
 
@@ -92,7 +92,7 @@ function App() {
         <Route path="*" element={<Navigate to="/vendor/login" replace />} />
 
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   )
 }
 

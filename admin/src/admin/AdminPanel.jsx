@@ -119,7 +119,7 @@ function AdminPanel() {
             return (
               <button
                 key={item.id}
-                onClick={() => navigate(`/${item.id}`)}
+                onClick={() => navigate(`/admin/${item.id}`)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 cursor-pointer ${
                   isActive 
                     ? 'bg-blue-600 text-white shadow-sm' 

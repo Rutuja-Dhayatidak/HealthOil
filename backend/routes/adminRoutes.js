@@ -12,7 +12,8 @@ const {
   rejectVendor,
   getAllProducts,
   approveProduct,
-  rejectProduct
+  rejectProduct,
+  getAllOrders
 } = require('../controllers/adminController');
 
 router.post('/login', loginAdmin);
@@ -29,5 +30,7 @@ router.patch('/vendors/:id/reject', rejectVendor);
 router.get('/products', getAllProducts);
 router.patch('/products/:id/approve', approveProduct);
 router.patch('/products/:id/reject', rejectProduct);
+
+router.get('/orders', getAllOrders);
 
 module.exports = router;
