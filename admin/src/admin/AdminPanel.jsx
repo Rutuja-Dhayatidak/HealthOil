@@ -82,11 +82,6 @@ function AdminPanel() {
     { id: 'orders', name: 'Orders', icon: ShoppingBag, badge: stats.orders > 0 ? String(stats.orders) : undefined, badgeColor: 'bg-green-600' },
     { id: 'returns', name: 'Returns & Refunds', icon: RotateCcw, badge: stats.returns > 0 ? String(stats.returns) : undefined, badgeColor: 'bg-green-600' },
     { id: 'payments', name: 'Payments', icon: CreditCard },
-    { id: 'commissions', name: 'Commissions', icon: Percent },
-    { id: 'settlements', name: 'Settlements', icon: Landmark },
-    { id: 'categories', name: 'Categories', icon: List },
-    { id: 'coupons', name: 'Coupons', icon: Tag },
-    { id: 'reports', name: 'Reports', icon: BarChart2 },
     { id: 'support', name: 'Support', icon: HelpCircle },
     { id: 'settings', name: 'Settings', icon: SettingsIcon },
   ]

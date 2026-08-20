@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Menu, Search, Bell, HelpCircle, User, LogOut, ShieldCheck } from 'lucide-react'
 import { io } from 'socket.io-client'
+import axios from 'axios'
 
 function VendorNavbar({ onMenuToggle }) {
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
+  const [vendorName, setVendorName] = useState('Vendor')
+  const [storeName, setStoreName] = useState('Store')
 
   useEffect(() => {
     const token = localStorage.getItem('vendorToken')
@@ -17,6 +20,16 @@ function VendorNavbar({ onMenuToggle }) {
         
         const socket = io('http://localhost:5000')
         socket.emit('joinVendorRoom', vendorId)
+        
+        // Fetch profile
+        axios.get('http://localhost:5000/api/vendors/shop/profile', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(res => {
+          if (res.data.success && res.data.data) {
+            if (res.data.data.fullName) setVendorName(res.data.data.fullName);
+            if (res.data.data.business?.storeName) setStoreName(res.data.data.business.storeName);
+          }
+        }).catch(err => console.error('Failed to fetch profile', err));
         
         socket.on('new-order', (data) => {
           setNotificationCount(prev => prev + 1)
@@ -94,13 +107,13 @@ function VendorNavbar({ onMenuToggle }) {
             onClick={() => setProfileOpen(!profileOpen)}
             className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center border border-blue-100 shadow-sm cursor-pointer hover:bg-blue-100 transition-colors shrink-0"
           >
-            R
+            {vendorName.charAt(0).toUpperCase()}
           </button>
           
           <div className="hidden lg:block text-left cursor-pointer" onClick={() => setProfileOpen(!profileOpen)}>
-            <h4 className="text-sm font-bold text-gray-800 leading-none">Rahul</h4>
+            <h4 className="text-sm font-bold text-gray-800 leading-none">{vendorName}</h4>
             <div className="flex items-center gap-1 mt-1">
-              <span className="text-[10px] text-gray-500 truncate max-w-[100px]">ABC Natural Oils</span>
+              <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{storeName}</span>
               <ShieldCheck className="w-3 h-3 text-blue-500" />
               <span className="text-[9px] font-bold text-blue-500">Verified Vendor</span>
             </div>

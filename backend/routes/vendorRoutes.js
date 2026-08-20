@@ -45,9 +45,10 @@ const { getStoreProfile, updateStoreProfile, uploadStoreImages } = require('../c
 router.get('/shop/profile', protectVendor, getStoreProfile);
 router.put('/shop/profile', protectVendor, updateStoreProfile);
 router.post('/shop/profile/images', protectVendor, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), uploadStoreImages);
-const { getVendorOrders, updateOrderStatus } = require('../controllers/vendorOrderController');
+const { getVendorOrders, updateOrderStatus, getVendorDashboardStats } = require('../controllers/vendorOrderController');
 
 // Vendor Order Routes
+router.get('/dashboard/stats', protectVendor, getVendorDashboardStats);
 router.get('/orders', protectVendor, getVendorOrders);
 router.put('/orders/:orderId/status', protectVendor, updateOrderStatus);
 

@@ -224,21 +224,21 @@ export default function Register() {
             <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Business Licences & Verification</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">GST Identification Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">GST Identification Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="gstNumber" value={formData.gstNumber} onChange={handleTextChange} placeholder="07AAAAA1111A1Z1" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">FSSAI Licence Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">FSSAI Licence Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="fssaiNumber" value={formData.fssaiNumber} onChange={handleTextChange} placeholder="12345678901234" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Shop Licence / Reg Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Shop Licence / Reg Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="shopRegNumber" value={formData.shopRegNumber} onChange={handleTextChange} placeholder="SL/984210" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Business PAN Card Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Business PAN Card Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="panNumber" value={formData.panNumber} onChange={handleTextChange} placeholder="ABCDE1234F" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function Register() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Aadhaar Card PDF</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Aadhaar Card PDF <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
                   <Upload className="w-4 h-4 text-gray-400" />
                   <span className="text-[10px] text-gray-500 truncate">{formData.aadhaarDoc?.name || 'Upload Aadhaar'}</span>
@@ -261,7 +261,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">PAN Card PDF</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">PAN Card PDF <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
                   <Upload className="w-4 h-4 text-gray-400" />
                   <span className="text-[10px] text-gray-500 truncate">{formData.panDoc?.name || 'Upload PAN'}</span>
@@ -270,7 +270,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">GST Registration Certificate</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">GST Registration Certificate <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
                   <Upload className="w-4 h-4 text-gray-400" />
                   <span className="text-[10px] text-gray-500 truncate">{formData.gstDoc?.name || 'Upload Certificate'}</span>
@@ -279,7 +279,7 @@ export default function Register() {
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">FSSAI Licence Document</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">FSSAI Licence Document <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
                   <Upload className="w-4 h-4 text-gray-400" />
                   <span className="text-[10px] text-gray-500 truncate">{formData.fssaiDoc?.name || 'Upload FSSAI'}</span>
@@ -297,31 +297,31 @@ export default function Register() {
             <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Bank Payout Account</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Account Holder Name</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Account Holder Name <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="holderName" value={formData.holderName} onChange={handleTextChange} placeholder="Gopal Das" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Bank Name</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Bank Name <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="bankName" value={formData.bankName} onChange={handleTextChange} placeholder="State Bank of India" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Bank Account Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Bank Account Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="password" name="accountNumber" value={formData.accountNumber} onChange={handleTextChange} placeholder="••••••••••••" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Confirm Account Number</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Confirm Account Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="confirmAccount" value={formData.confirmAccount} onChange={handleTextChange} placeholder="5020100..." className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">IFSC Code</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">IFSC Code <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="ifscCode" value={formData.ifscCode} onChange={handleTextChange} placeholder="SBIN0001234" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Account Type</label>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Account Type <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <select name="accountType" value={formData.accountType} onChange={handleTextChange} className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]">
                   <option>Current</option>
                   <option>Savings</option>

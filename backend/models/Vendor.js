@@ -85,6 +85,9 @@ const vendorSchema = new mongoose.Schema({
     banner: String,
     description: String,
     businessCategory: String,
+    openTime: String,
+    closeTime: String,
+    operatingDays: [String],
     socialLinks: {
       facebook: String,
       instagram: String,

@@ -39,6 +39,15 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
 
   const [activeTab, setActiveTab] = useState('All Shops')
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hr12 = hour % 12 || 12;
+    return `${hr12}:${m} ${ampm}`;
+  };
+
   useEffect(() => {
     const loadRealShops = async () => {
       setLoading(true)
@@ -496,8 +505,18 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
                       <Users className="w-3.5 h-3.5 text-gray-400" /> Pickup available
                     </div>
                     <div className="w-1 h-1 rounded-full bg-gray-200"></div>
-                    <div className="text-emerald-600">
-                      Free delivery on orders above ₹499
+                    <div className="text-gray-600 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      <span>
+                        {shop.storeProfile?.openTime && shop.storeProfile?.closeTime 
+                          ? `${formatTime(shop.storeProfile.openTime)} - ${formatTime(shop.storeProfile.closeTime)}`
+                          : shop.timing || 'Closes at 10:00 PM'}
+                      </span>
+                      {shop.storeProfile?.operatingDays && shop.storeProfile.operatingDays.length > 0 && (
+                        <span className="text-gray-400 ml-1">
+                          ({shop.storeProfile.operatingDays.length === 7 ? 'All Days' : shop.storeProfile.operatingDays.map(d => d.slice(0, 3)).join(', ')})
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { 
@@ -21,6 +22,33 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate()
 
+  const [stats, setStats] = useState({
+    totalSales: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    lowStock: 0,
+    returns: 0,
+    recentOrders: []
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('vendorToken');
+        if (!token) return;
+        const res = await axios.get('http://localhost:5000/api/vendors/dashboard/stats', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) {
+          setStats(res.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats', err);
+      }
+    };
+    fetchStats();
+  }, []);
+
   // Mock chart data
   const salesData = [
     { day: '11 May', sales: 5000, orders: 40 },
@@ -32,11 +60,7 @@ export default function Dashboard() {
     { day: '17 May', sales: 13000, orders: 80 },
   ]
 
-  const recentOrders = [
-    { id: '#HLO12345', date: '17 May 2026, 10:30 AM', product: 'Cold Pressed Coconut Oil 1L', amount: '₹1,198.00', status: 'New Order', img: '🥥' },
-    { id: '#HLO12344', date: '17 May 2026, 09:15 AM', product: 'Mustard Oil 1L', amount: '₹798.00', status: 'Packed', img: '🛢️' },
-    { id: '#HLO12343', date: '16 May 2026, 08:45 PM', product: 'Olive Oil 1L', amount: '₹1,497.00', status: 'Delivered', img: '🌿' },
-  ]
+
 
   const topSelling = [
     { name: 'Cold Pressed Coconut Oil 1L', price: '₹399.00', sold: 342, stock: 156, img: '🥥' },
@@ -83,8 +107,8 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium mb-1">Total Sales</p>
-              <h3 className="text-xl font-bold text-gray-800">₹48,560</h3>
-              <p className="text-[10px] text-gray-400 mt-1"><span className="text-green-500 font-bold">▲ 18.85%</span> vs last 7 days</p>
+              <h3 className="text-xl font-bold text-gray-800">₹{stats.totalSales.toLocaleString('en-IN')}</h3>
+              <p className="text-[10px] text-gray-400 mt-1"><span className="text-green-500 font-bold">↑ 18.85%</span> vs last 7 days</p>
             </div>
           </div>
         </div>
@@ -96,8 +120,8 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium mb-1">Total Orders</p>
-              <h3 className="text-xl font-bold text-gray-800">118</h3>
-              <p className="text-[10px] text-gray-400 mt-1"><span className="text-green-500 font-bold">▲ 16.21%</span> vs last 7 days</p>
+              <h3 className="text-xl font-bold text-gray-800">{stats.totalOrders}</h3>
+              <p className="text-[10px] text-gray-400 mt-1"><span className="text-green-500 font-bold">↑ 16.21%</span> vs last 7 days</p>
             </div>
           </div>
         </div>
@@ -109,7 +133,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium mb-1">Pending Orders</p>
-              <h3 className="text-xl font-bold text-gray-800">12</h3>
+              <h3 className="text-xl font-bold text-gray-800">{stats.pendingOrders}</h3>
             </div>
           </div>
           <a href="#" className="text-[10px] font-bold text-blue-600 mt-2 hover:underline">View all orders &gt;</a>
@@ -122,7 +146,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium mb-1">Low Stock</p>
-              <h3 className="text-xl font-bold text-gray-800">8</h3>
+              <h3 className="text-xl font-bold text-gray-800">{stats.lowStock}</h3>
             </div>
           </div>
           <a href="#" className="text-[10px] font-bold text-orange-600 mt-2 hover:underline">View products &gt;</a>
@@ -135,7 +159,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium mb-1">Returns</p>
-              <h3 className="text-xl font-bold text-gray-800">2</h3>
+              <h3 className="text-xl font-bold text-gray-800">{stats.returns}</h3>
             </div>
           </div>
           <a href="#" className="text-[10px] font-bold text-blue-600 mt-2 hover:underline">View returns &gt;</a>
@@ -213,28 +237,32 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="text-xs divide-y divide-gray-50">
-                {recentOrders.map((order, idx) => (
+                {stats.recentOrders && stats.recentOrders.map((order, idx) => (
                   <tr key={idx}>
                     <td className="py-3">
-                      <div className="font-bold text-gray-700">{order.id}</div>
-                      <div className="text-[9px] text-gray-400 mt-0.5">{order.date}</div>
+                      <div className="font-bold text-gray-700">{order.orderId}</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5">{new Date(order.createdAt).toLocaleString()}</div>
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-gray-50 flex items-center justify-center text-sm">{order.img}</div>
-                        <span className="font-bold text-gray-700 max-w-[120px] truncate">{order.product}</span>
+                        {order.items && order.items.length > 0 && order.items[0].image ? (
+                          <img src={order.items[0].image} alt={order.items[0].productName} className="w-8 h-8 rounded object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded bg-gray-50 flex items-center justify-center text-sm">📦</div>
+                        )}
+                        <span className="font-bold text-gray-700 max-w-[120px] truncate">{order.items && order.items.length > 0 ? order.items[0].productName : 'Product'}</span>
                       </div>
                     </td>
-                    <td className="py-3 font-bold text-gray-700">{order.amount}</td>
+                    <td className="py-3 font-bold text-gray-700">₹{order.totalAmount}</td>
                     <td className="py-3"><StatusBadge status={order.status} /></td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        {order.status === 'New Order' ? (
-                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-[10px] font-bold">Accept Order</button>
+                        {order.status === 'New' ? (
+                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer" onClick={() => navigate('/vendor/orders')}>Accept Order</button>
                         ) : (
-                          <button className="border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded text-[10px] font-bold">View Order</button>
+                          <button className="border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded text-[10px] font-bold cursor-pointer" onClick={() => navigate('/vendor/orders')}>View Order</button>
                         )}
-                        <button className="text-gray-400 hover:text-gray-600"><MoreVertical className="w-4 h-4" /></button>
+                        <button className="text-gray-400 hover:text-gray-600 cursor-pointer"><MoreVertical className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -278,81 +306,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Alerts */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-800 text-sm">Alerts & Notifications</h3>
-            <a href="#" className="text-[10px] font-bold text-blue-600 hover:underline">View all</a>
-          </div>
-          <div className="space-y-4 flex-1">
-            {alerts.map((alert, idx) => (
-              <div key={idx} className="flex gap-3 items-start border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                <div className="mt-0.5"><AlertIcon type={alert.type} /></div>
-                <div className="flex-1">
-                  <p className="text-[11px] text-gray-700 leading-tight">{alert.msg}</p>
-                </div>
-                <span className="text-[9px] text-gray-400 whitespace-nowrap">{alert.time}</span>
-              </div>
-            ))}
-          </div>
-          <a href="#" className="text-[10px] font-bold text-blue-600 mt-4 text-center hover:underline block">View all notifications &gt;</a>
-        </div>
-
-        {/* Payments Overview */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-800 text-sm">Payments Overview</h3>
-            <a href="#" className="text-[10px] font-bold text-blue-600 hover:underline">View all</a>
-          </div>
-          <div className="flex gap-3 mb-4 flex-1">
-            <div className="flex-1 border border-gray-100 rounded-lg p-3 relative">
-              <p className="text-[10px] text-gray-500 mb-1">Available Balance</p>
-              <h3 className="text-lg font-bold text-gray-800">₹12,460.00</h3>
-              <Wallet className="absolute bottom-3 right-3 w-5 h-5 text-blue-300" />
-            </div>
-            <div className="flex-1 bg-orange-50 rounded-lg p-3 relative">
-              <p className="text-[10px] text-orange-800/60 mb-1">Next Settlement</p>
-              <p className="text-xs font-bold text-gray-800 mb-0.5">20 May 2026</p>
-              <h3 className="text-lg font-bold text-gray-800">₹8,900.00</h3>
-              <Calendar className="absolute bottom-3 right-3 w-5 h-5 text-orange-300" />
-            </div>
-          </div>
-          <button className="w-full py-2.5 border border-blue-600 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors">
-            Go to Payments
-          </button>
-        </div>
-
-        {/* Store Performance */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-800 text-sm">Store Performance</h3>
-            <a href="#" className="text-[10px] font-bold text-blue-600 hover:underline">View full report</a>
-          </div>
-          <div className="grid grid-cols-2 gap-y-4 gap-x-2 flex-1">
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 mb-1">Rating</p>
-              <h3 className="text-xl font-bold text-gray-800">4.6</h3>
-              <div className="text-yellow-400 text-[10px]">★★★★★</div>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 mb-1">On-time Delivery</p>
-              <h3 className="text-xl font-bold text-gray-800">96%</h3>
-              <p className="text-[9px] text-green-500 font-bold">▲ 2.5%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 mb-1">Cancellation Rate</p>
-              <h3 className="text-xl font-bold text-gray-800">2.1%</h3>
-              <p className="text-[9px] text-green-500 font-bold">▼ 0.8%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 mb-1">Response Time</p>
-              <h3 className="text-xl font-bold text-gray-800">1.2 hrs</h3>
-              <p className="text-[9px] text-green-500 font-bold">▼ 0.4 hrs</p>
-            </div>
-          </div>
-          <p className="text-[8px] text-center text-gray-400 mt-2">Performance metrics vs last 7 days</p>
         </div>
 
       </div>

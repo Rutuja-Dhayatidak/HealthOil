@@ -53,12 +53,6 @@ function VendorSidebar() {
       ]
     },
     {
-      title: 'PAYMENTS',
-      items: [
-        { name: 'Settlements', path: '/vendor/settlements', icon: CreditCard },
-      ]
-    },
-    {
       title: 'ANALYTICS',
       items: [
         { name: 'Analytics', path: '/vendor/reports', icon: PieChart },
@@ -76,13 +70,6 @@ function VendorSidebar() {
       items: [
         { name: 'Store Profile', path: '/vendor/shop', icon: Store },
         { name: 'Documents & Verification', path: '/vendor/kyc', icon: FileText },
-      ]
-    },
-    {
-      title: 'SUPPORT',
-      items: [
-        { name: 'Help Center', path: '/vendor/support', icon: HelpCircle },
-        { name: 'Support', path: '/vendor/contact-support', icon: Headset },
       ]
     },
   ]

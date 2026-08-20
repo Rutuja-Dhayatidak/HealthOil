@@ -10,11 +10,15 @@ exports.getStoreProfile = async (req, res) => {
     res.json({
       success: true,
       data: {
+        fullName: vendor.fullName,
         mobile: vendor.mobile,
         vendorStatus: vendor.vendorStatus,
         business: vendor.business,
         pickupAddress: vendor.pickupAddress,
-        storeProfile: vendor.storeProfile || {}
+        storeProfile: vendor.storeProfile || {},
+        openTime: vendor.storeProfile?.openTime || '',
+        closeTime: vendor.storeProfile?.closeTime || '',
+        operatingDays: vendor.storeProfile?.operatingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
       }
     });
   } catch (error) {
@@ -25,7 +29,7 @@ exports.getStoreProfile = async (req, res) => {
 
 exports.updateStoreProfile = async (req, res) => {
   try {
-    const { storeName, description, businessCategory, address, pickupAddress, socialLinks, vendorStatus } = req.body;
+    const { storeName, description, businessCategory, address, pickupAddress, socialLinks, vendorStatus, openTime, closeTime, operatingDays } = req.body;
     
     const vendor = await Vendor.findById(req.user.id);
     if (!vendor) {
@@ -50,6 +54,9 @@ exports.updateStoreProfile = async (req, res) => {
     if (description !== undefined) vendor.set('storeProfile.description', description);
     if (businessCategory !== undefined) vendor.set('storeProfile.businessCategory', businessCategory);
     if (socialLinks !== undefined) vendor.set('storeProfile.socialLinks', socialLinks);
+    if (openTime !== undefined) vendor.set('storeProfile.openTime', openTime);
+    if (closeTime !== undefined) vendor.set('storeProfile.closeTime', closeTime);
+    if (operatingDays !== undefined) vendor.set('storeProfile.operatingDays', operatingDays);
 
     await vendor.save();
 

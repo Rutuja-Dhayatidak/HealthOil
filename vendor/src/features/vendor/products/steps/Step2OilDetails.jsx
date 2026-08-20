@@ -85,7 +85,7 @@ export default function Step2OilDetails() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">FSSAI License No *</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">FSSAI License No</label>
                 <Controller
                   control={control}
                   name="fssaiLicenseNo"
@@ -113,7 +113,7 @@ export default function Step2OilDetails() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">HSN Code *</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">HSN Code</label>
                 <input 
                   {...register('hsnCode')}
                   placeholder="e.g. 1508"

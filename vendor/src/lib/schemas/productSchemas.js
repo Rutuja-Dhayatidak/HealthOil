@@ -16,8 +16,8 @@ export const oilDetailsSchema = z.object({
   extractionMethod: z.string().min(1, 'Select an extraction method'),
   packagingType: z.string().min(1, 'Select a packaging type'),
   isOrganic: z.boolean(),
-  fssaiLicenseNo: z.string().regex(/^[0-9]{14}$/, 'FSSAI License must be exactly 14 digits'),
-  hsnCode: z.string().min(4, 'Valid HSN code required'),
+  fssaiLicenseNo: z.string().optional().refine(val => !val || /^[0-9]{14}$/.test(val), 'FSSAI License must be exactly 14 digits'),
+  hsnCode: z.string().optional().refine(val => !val || val.length >= 4, 'Valid HSN code required'),
   shelfLifeDays: z.coerce.number().min(30, 'Shelf life must be at least 30 days'),
   nutrition: z.object({
     energy: z.coerce.number().min(0),

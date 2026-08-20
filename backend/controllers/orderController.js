@@ -62,6 +62,37 @@ exports.verifyPaymentAndCreateOrders = async (req, res) => {
     }
 
     // Payment is verified. Now create orders per vendor.
+    
+    let finalDeliveryAddress = deliveryAddress;
+    if (typeof deliveryAddress === 'string') {
+      const latMatch = deliveryAddress.match(/Lat:\s*([0-9.-]+)/);
+      const lngMatch = deliveryAddress.match(/Lng:\s*([0-9.-]+)/);
+      finalDeliveryAddress = {
+        name: req.user.name || 'Mobile User',
+        phone: req.user.phone || 'N/A',
+        addressText: deliveryAddress,
+        lat: latMatch ? parseFloat(latMatch[1]) : undefined,
+        lng: lngMatch ? parseFloat(lngMatch[1]) : undefined,
+      };
+    } else if (!deliveryAddress || Object.keys(deliveryAddress).length === 0) {
+      // Fallback if mobile app doesn't send deliveryAddress or sends it empty
+      finalDeliveryAddress = {
+        name: req.user.name || 'Mobile User',
+        phone: req.user.phone || 'N/A',
+        addressText: 'Location provided via App',
+        lat: 18.6298, // default Pune lat
+        lng: 73.7997  // default Pune lng
+      };
+    } else if (typeof deliveryAddress === 'object') {
+      finalDeliveryAddress = {
+        name: deliveryAddress.name || req.user.name || 'Mobile User',
+        phone: deliveryAddress.phone || req.user.phone || 'N/A',
+        addressText: deliveryAddress.addressText || 'Location provided via App',
+        lat: deliveryAddress.lat,
+        lng: deliveryAddress.lng
+      };
+    }
+
     // Fetch a default vendor ID just in case an item is missing one (Assign to newest vendor)
     const defaultVendor = await Vendor.findOne().sort({ createdAt: -1 });
     const fallbackVendorId = defaultVendor ? defaultVendor._id : null;
@@ -100,7 +131,7 @@ exports.verifyPaymentAndCreateOrders = async (req, res) => {
           image: i.image
         })),
         totalAmount: vendorTotal,
-        deliveryAddress,
+        deliveryAddress: finalDeliveryAddress,
         paymentMethod: 'Online',
         paymentStatus: 'Success',
         status: 'New',

@@ -16,6 +16,9 @@ export default function Shop() {
     vendorStatus: 'ACTIVE',
     logo: '',
     banner: '',
+    openTime: '',
+    closeTime: '',
+    operatingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
     socialLinks: { facebook: '', instagram: '', website: '' },
     address: { addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: '' },
     pickupAddress: { contactName: '', mobile: '', addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: '' },
@@ -42,6 +45,9 @@ export default function Shop() {
           vendorStatus: d.vendorStatus || 'ACTIVE',
           logo: d.storeProfile?.logo || '',
           banner: d.storeProfile?.banner || '',
+          openTime: d.storeProfile?.openTime || d.openTime || '',
+          closeTime: d.storeProfile?.closeTime || d.closeTime || '',
+          operatingDays: d.operatingDays || d.storeProfile?.operatingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
           socialLinks: {
             facebook: d.storeProfile?.socialLinks?.facebook || '',
             instagram: d.storeProfile?.socialLinks?.instagram || '',
@@ -106,6 +112,9 @@ export default function Shop() {
         storeName: formData.storeName,
         description: formData.description,
         businessCategory: formData.businessCategory,
+        openTime: formData.openTime,
+        closeTime: formData.closeTime,
+        operatingDays: formData.operatingDays,
         address: formData.address,
         pickupAddress: formData.pickupAddress,
         socialLinks: formData.socialLinks
@@ -135,6 +144,7 @@ export default function Shop() {
         <button type="button" onClick={() => setActiveTab('profile')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-200 border-b-2 -mb-0.5 ${activeTab === 'profile' ? 'border-[#002F24] text-[#002F24]' : 'border-transparent text-gray-500 hover:text-[#002F24]'}`}>Store Profile</button>
         <button type="button" onClick={() => setActiveTab('address')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-200 border-b-2 -mb-0.5 ${activeTab === 'address' ? 'border-[#002F24] text-[#002F24]' : 'border-transparent text-gray-500 hover:text-[#002F24]'}`}>Address & Contact</button>
         <button type="button" onClick={() => setActiveTab('pickup')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-200 border-b-2 -mb-0.5 ${activeTab === 'pickup' ? 'border-[#002F24] text-[#002F24]' : 'border-transparent text-gray-500 hover:text-[#002F24]'}`}>Pickup Details</button>
+        <button type="button" onClick={() => setActiveTab('timings')} className={`px-4 py-2 text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-200 border-b-2 -mb-0.5 ${activeTab === 'timings' ? 'border-[#002F24] text-[#002F24]' : 'border-transparent text-gray-500 hover:text-[#002F24]'}`}>Timings & Days</button>
       </div>
 
       <form onSubmit={handleSave} className="bg-white border border-[#D4AF37]/20 rounded-2xl p-6 shadow-sm max-w-3xl">
@@ -194,6 +204,8 @@ export default function Shop() {
                 <input type="text" value={formData.businessCategory} onChange={(e) => handleInputChange('businessCategory', e.target.value)} placeholder="e.g. Engine Oil, Industrial Oil, Grease" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/25 rounded-xl px-4 py-2.5 outline-none text-[#15251F] text-xs focus:border-[#002F24]" />
               </div>
             </div>
+
+
 
             <div>
               <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">About Store / Description</label>
@@ -306,6 +318,48 @@ export default function Shop() {
               <div>
                 <label className="block text-[9px] font-bold text-gray-400 uppercase mb-2">Pincode</label>
                 <input type="text" value={formData.pickupAddress?.pincode || ''} onChange={(e) => handleInputChange('pincode', e.target.value, 'pickupAddress')} className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/25 rounded-xl px-4 py-2.5 outline-none text-[#15251F]" required />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: TIMINGS */}
+        {activeTab === 'timings' && (
+          <div className="space-y-6">
+            <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">
+              Store Timings & Days
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Opening Time</label>
+                <input type="time" value={formData.openTime} onChange={(e) => handleInputChange('openTime', e.target.value)} className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/25 rounded-xl px-4 py-2.5 outline-none text-[#15251F] text-xs focus:border-[#002F24]" />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Closing Time</label>
+                <input type="time" value={formData.closeTime} onChange={(e) => handleInputChange('closeTime', e.target.value)} className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/25 rounded-xl px-4 py-2.5 outline-none text-[#15251F] text-xs focus:border-[#002F24]" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Operating Days</label>
+              <div className="flex flex-wrap gap-4 mt-1">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                  <label key={day} className="flex items-center gap-1.5 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.operatingDays.includes(day)}
+                      onChange={(e) => {
+                        const newDays = e.target.checked 
+                          ? [...formData.operatingDays, day] 
+                          : formData.operatingDays.filter(d => d !== day);
+                        handleInputChange('operatingDays', newDays);
+                      }}
+                      className="w-3.5 h-3.5 accent-[#002F24] rounded-sm cursor-pointer"
+                    />
+                    <span className="text-[11px] font-medium text-gray-700">{day}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </div>

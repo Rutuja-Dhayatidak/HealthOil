@@ -43,6 +43,7 @@ exports.getPublicShops = async (req, res) => {
         logo: storeProfile.logo || '',
         banner: storeProfile.banner || '',
         socialLinks: storeProfile.socialLinks || {},
+        storeProfile: storeProfile,
         lat: 35,
         lng: 40,
         oilType: storeProfile.businessCategory || ''
@@ -99,7 +100,8 @@ exports.getPublicShopDetails = async (req, res) => {
       image: storeProfile.banner || storeProfile.logo || '',
       logo: storeProfile.logo || '',
       banner: storeProfile.banner || '',
-      socialLinks: storeProfile.socialLinks || {}
+      socialLinks: storeProfile.socialLinks || {},
+      storeProfile: storeProfile
     };
 
     // Fetch vendor's products
