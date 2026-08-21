@@ -1,0 +1,45 @@
+name: Deploy to VPS (healthyfood.cafe)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploying application via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST || '76.13.185.120' }}
+          username: ${{ secrets.VPS_USERNAME || 'root' }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "🚀 Starting Deployment on VPS..."
+            
+            # Directory where project is cloned on VPS
+            APP_DIR="/var/www/HealthOil"
+            
+            if [ ! -d "$APP_DIR" ]; then
+              echo "Error: Directory $APP_DIR does not exist. Please run initial setup on VPS first."
+              exit 1
+            fi
+            
+            cd "$APP_DIR"
+            
+            echo "📥 Fetching latest code from GitHub..."
+            git fetch origin main || git fetch origin master
+            git reset --hard origin/main || git reset --hard origin/master
+            
+            echo "🐳 Building and restarting Docker containers..."
+            docker compose up -d --build --remove-orphans
+            
+            echo "🧹 Cleaning up dangling images..."
+            docker image prune -f
+            
+            echo "✅ Deployment completed successfully! Live on https://healthyfood.cafe"
