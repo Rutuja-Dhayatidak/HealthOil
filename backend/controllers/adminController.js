@@ -20,10 +20,21 @@ const getAdminStats = async (req, res) => {
     const totalOrders = orders.length;
     const totalSales = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-    const recentOrdersData = await Order.find({})
-      .populate('user', 'name email')
+    const recentOrdersRaw = await Order.find({})
+      .populate('vendor', 'business.storeName fullName')
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(5)
+      .lean();
+
+    for (let order of recentOrdersRaw) {
+      if (order.user) {
+        let userDoc = await WebsiteUser.findById(order.user).select('name phone email').lean();
+        if (!userDoc) {
+          userDoc = await MobileUser.findById(order.user).select('name phone email').lean();
+        }
+        order.user = userDoc || null;
+      }
+    }
 
     res.json({
       success: true,
@@ -35,7 +46,7 @@ const getAdminStats = async (req, res) => {
         productApproval: pendingProducts,
         orders: totalOrders,
         sales: totalSales,
-        recentOrders: recentOrdersData,
+        recentOrders: recentOrdersRaw,
         returns: 0
       }
     });
@@ -260,11 +271,22 @@ const rejectProduct = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find({})
-      .populate('user', 'name phone email')
+    const ordersRaw = await Order.find({})
       .populate('vendor', 'business.storeName fullName')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, orders });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    for (let order of ordersRaw) {
+      if (order.user) {
+        let userDoc = await WebsiteUser.findById(order.user).select('name phone email').lean();
+        if (!userDoc) {
+          userDoc = await MobileUser.findById(order.user).select('name phone email').lean();
+        }
+        order.user = userDoc || null;
+      }
+    }
+
+    res.json({ success: true, orders: ordersRaw });
   } catch (error) {
     console.error('Admin get orders error:', error);
     res.status(500).json({ success: false, message: 'Server error' });

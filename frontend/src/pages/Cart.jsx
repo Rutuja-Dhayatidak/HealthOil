@@ -552,6 +552,7 @@ export default function Cart({
                               if (setCartItems) {
                                 setCartItems(prev => [...prev, {
                                   id: p.id,
+                                  vendorId: p.vendorId || p.vendor,
                                   name: p.name,
                                   brand: 'HealthOil Naturals',
                                   variant: p.size,

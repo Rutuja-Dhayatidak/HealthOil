@@ -50,7 +50,8 @@ export default function ProductDetailsDrawer({ product, shop, isOpen, onClose, o
       variant: vSize,
       price: vPrice,
       qty: qty,
-      image: product.image
+      image: product.image,
+      vendorId: product.vendorId || product.vendor || shop?.id || shop?._id
     })
     onClose()
   }

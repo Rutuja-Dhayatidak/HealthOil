@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Eye, XCircle, CheckCircle, RefreshCcw } from 'lucide-react'
+import { Search, Eye, XCircle, CheckCircle, RefreshCcw, MapPin, ExternalLink, Navigation } from 'lucide-react'
 import { StatusBadge, OrderStatusTimeline } from '../components/VendorComponents'
 import axios from 'axios'
 import { io } from 'socket.io-client'
@@ -46,22 +46,34 @@ export default function Orders() {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.data.success) {
-        // Format orders for UI
-        const formatted = res.data.orders.map(o => ({
-          id: o.orderId,
-          dbId: o._id,
-          customer: o.user?.name || 'Guest',
-          mobile: o.user?.phone || o.deliveryAddress?.phone || 'N/A',
-          product: o.items.map(i => `${i.productName} (${i.qty})`).join(', '),
-          qty: o.items.reduce((sum, i) => sum + i.qty, 0),
-          amount: `₹${o.totalAmount}`,
-          payment: o.paymentMethod,
-          time: new Date(o.createdAt).toLocaleString(),
-          status: o.status,
-          address: o.deliveryAddress?.addressText || 'N/A',
-          distance: 'N/A',
-          deliveryBoy: 'N/A'
-        }))
+        const formatted = res.data.orders.map(o => {
+          const lat = o.deliveryAddress?.lat
+          const lng = o.deliveryAddress?.lng
+          const address = o.deliveryAddress?.addressText || (lat && lng ? `GPS: ${lat}, ${lng}` : 'Address not specified')
+          const mapUrl = (lat && lng) 
+            ? `https://www.google.com/maps?q=${lat},${lng}` 
+            : (address && address !== 'Address not specified' ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null)
+          const distance = (lat && lng) ? `${(Math.abs(lat - 18.5204) * 111).toFixed(1)} km` : null
+
+          return {
+            id: o.orderId,
+            dbId: o._id,
+            customer: o.user?.name || o.deliveryAddress?.name || 'Guest',
+            mobile: o.user?.phone || o.deliveryAddress?.phone || 'N/A',
+            product: o.items.map(i => `${i.productName} (${i.qty})`).join(', '),
+            qty: o.items.reduce((sum, i) => sum + i.qty, 0),
+            amount: `₹${o.totalAmount}`,
+            payment: o.paymentMethod,
+            time: new Date(o.createdAt).toLocaleString(),
+            status: o.status,
+            address: address,
+            lat: lat,
+            lng: lng,
+            mapUrl: mapUrl,
+            distance: distance,
+            deliveryBoy: 'N/A'
+          }
+        })
         setOrdersData(formatted)
       }
     } catch (err) {
@@ -96,7 +108,9 @@ export default function Orders() {
 
   const filteredOrders = ordersData.filter(order => {
     const matchesTab = activeTab === 'All' || order.status === activeTab
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || order.customer.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          order.address.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesTab && matchesSearch
   })
 
@@ -106,7 +120,7 @@ export default function Orders() {
       {/* Title */}
       <div>
         <h2 className="text-xl font-serif font-bold text-[#002F24] tracking-tight">Order Fulfilment</h2>
-        <p className="text-xs text-gray-500 mt-1">Accept incoming purchases, track delivery boys, and monitor order timelines.</p>
+        <p className="text-xs text-gray-500 mt-1">Accept incoming purchases, track delivery routes, and monitor customer locations.</p>
       </div>
 
       {/* Tabs list navigation */}
@@ -131,7 +145,7 @@ export default function Orders() {
           <Search className="w-3.5 h-3.5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by Order ID or customer..."
+            placeholder="Search by Order ID, customer, address..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent text-xs outline-none w-full text-[#15251F] placeholder-gray-400"
@@ -139,37 +153,60 @@ export default function Orders() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[950px]">
             <thead>
               <tr className="border-b border-[#D4AF37]/20 text-gray-400 font-bold">
-                <th className="pb-3">Order ID</th>
-                <th className="pb-3">Customer</th>
-                <th className="pb-3">Oil Item</th>
-                <th className="pb-3 text-center">Qty</th>
-                <th className="pb-3">Amount</th>
-                <th className="pb-3">Payment</th>
-                <th className="pb-3">Received</th>
-                <th className="pb-3">Status</th>
-                <th className="pb-3 text-right">Actions</th>
+                <th className="pb-3 px-2 whitespace-nowrap">Order ID</th>
+                <th className="pb-3 px-2 min-w-[130px]">Customer</th>
+                <th className="pb-3 px-2 min-w-[220px]">Delivery Location</th>
+                <th className="pb-3 px-2 min-w-[180px]">Oil Item</th>
+                <th className="pb-3 px-2 text-center whitespace-nowrap">Qty</th>
+                <th className="pb-3 px-2 whitespace-nowrap">Amount</th>
+                <th className="pb-3 px-2 whitespace-nowrap">Payment</th>
+                <th className="pb-3 px-2 whitespace-nowrap">Status</th>
+                <th className="pb-3 px-2 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredOrders.map((order, idx) => (
                 <tr key={idx} className="text-gray-650 hover:bg-[#F8F2E7]/20 transition-colors">
-                  <td className="py-3.5 font-mono font-bold text-[#D4AF37]">{order.id}</td>
-                  <td className="py-3.5 font-bold text-[#002F24]">{order.customer}</td>
-                  <td className="py-3.5">{order.product}</td>
-                  <td className="py-3.5 text-center">{order.qty}</td>
-                  <td className="py-3.5 font-bold text-[#002F24]">{order.amount}</td>
-                  <td className="py-3.5">{order.payment}</td>
-                  <td className="py-3.5 text-gray-400">{order.time}</td>
-                  <td className="py-3.5">
+                  <td className="py-3.5 px-2 font-mono font-bold text-[#D4AF37] whitespace-nowrap">{order.id}</td>
+                  <td className="py-3.5 px-2 min-w-[130px]">
+                    <div className="font-bold text-[#002F24]">{order.customer}</div>
+                    <div className="text-[10px] text-gray-400">{order.mobile}</div>
+                  </td>
+                  <td className="py-3.5 px-2 max-w-[220px]">
+                    <div className="flex items-start gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-gray-700 font-medium" title={order.address}>{order.address}</p>
+                        {order.mapUrl && (
+                          <a
+                            href={order.mapUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-[#002F24] hover:text-[#D4AF37] font-bold inline-flex items-center gap-0.5 mt-0.5 underline"
+                          >
+                            Open Maps <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-2 max-w-[200px]">
+                    <p className="truncate font-medium text-[#002F24]" title={order.product}>{order.product}</p>
+                  </td>
+                  <td className="py-3.5 px-2 text-center font-bold whitespace-nowrap">{order.qty}</td>
+                  <td className="py-3.5 px-2 font-bold text-[#002F24] whitespace-nowrap">{order.amount}</td>
+                  <td className="py-3.5 px-2 whitespace-nowrap">{order.payment}</td>
+                  <td className="py-3.5 px-2 whitespace-nowrap">
                     <StatusBadge status={order.status} />
                   </td>
-                  <td className="py-3.5 text-right">
+                  <td className="py-3.5 px-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => setSelectedOrder(order)}
                       className="p-1.5 bg-[#F8F2E7]/60 border border-[#D4AF37]/20 rounded-lg text-gray-500 hover:text-[#002F24] transition-colors cursor-pointer shadow-sm"
+                      title="View Details"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -189,7 +226,9 @@ export default function Orders() {
               <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-6">
                 <div>
                   <h3 className="font-serif font-bold text-sm text-[#002F24]">Order Details: {selectedOrder.id}</h3>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">Distance: {selectedOrder.distance}</span>
+                  {selectedOrder.distance && (
+                    <span className="text-[10px] text-gray-400 block mt-0.5">Estimated Distance: {selectedOrder.distance}</span>
+                  )}
                 </div>
                 <button
                   onClick={() => setSelectedOrder(null)}
@@ -201,10 +240,43 @@ export default function Orders() {
 
               {/* Order address & items details */}
               <div className="space-y-6">
-                <div className="space-y-1.5 text-xs">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase block tracking-wider">Deliver To</span>
-                  <p className="font-bold text-[#002F24]">{selectedOrder.customer} ({selectedOrder.mobile})</p>
-                  <p className="text-gray-500 leading-relaxed">{selectedOrder.address}</p>
+                
+                {/* Customer & Location Box */}
+                <div className="bg-[#FAF4E8]/40 border border-[#D4AF37]/20 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Customer Delivery Location</span>
+                    {selectedOrder.distance && (
+                      <span className="text-[10px] font-bold bg-[#002F24] text-[#FAF4E8] px-2 py-0.5 rounded-full">{selectedOrder.distance}</span>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <p className="font-bold text-sm text-[#002F24]">{selectedOrder.customer}</p>
+                    <p className="text-xs text-gray-600 font-medium">📞 {selectedOrder.mobile}</p>
+                  </div>
+
+                  <div className="flex items-start gap-1.5 pt-1 text-xs text-gray-700">
+                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="leading-relaxed font-medium">{selectedOrder.address}</p>
+                      {selectedOrder.lat && selectedOrder.lng && (
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">GPS: {selectedOrder.lat}, {selectedOrder.lng}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedOrder.mapUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={selectedOrder.mapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 w-full py-2 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-[#D4AF37]" /> Open Live Route on Google Maps
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 text-xs border-t border-gray-100 pt-4">

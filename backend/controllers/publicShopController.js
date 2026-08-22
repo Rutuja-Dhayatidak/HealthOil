@@ -116,6 +116,8 @@ exports.getPublicShopDetails = async (req, res) => {
 
       return {
         id: p._id.toString(),
+        vendorId: p.vendor ? p.vendor.toString() : id,
+        vendor: p.vendor ? p.vendor.toString() : id,
         name: p.basicDetails?.name || '',
         brandName: p.basicDetails?.brandName || '',
         size: `${variant.size || ''} ${variant.unit || ''}`.trim(),
@@ -160,6 +162,8 @@ exports.getPublicProducts = async (req, res) => {
 
       return {
         id: p._id.toString(),
+        vendorId: p.vendor ? p.vendor.toString() : undefined,
+        vendor: p.vendor ? p.vendor.toString() : undefined,
         name: p.basicDetails?.name || '',
         brandName: p.basicDetails?.brandName || 'HealthOil',
         size: `${variant.size || ''} ${variant.unit || ''}`.trim(),
