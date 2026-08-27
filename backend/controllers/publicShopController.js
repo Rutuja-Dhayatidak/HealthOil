@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Vendor = require('../models/Vendor');
 const VendorProduct = require('../models/VendorProduct');
+const Review = require('../models/Review');
 
 // Get all active/approved vendor shops for public display
 exports.getPublicShops = async (req, res) => {
@@ -144,7 +145,12 @@ exports.getPublicShopDetails = async (req, res) => {
       };
     });
 
-    res.json({ success: true, shop, products });
+    // Fetch reviews
+    const reviews = await Review.find({ vendor: id, isFeatured: true })
+      .populate('user', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, shop, products, reviews });
   } catch (error) {
     console.error('Error fetching public shop details:', error);
     res.status(500).json({ success: false, message: 'Server error' });

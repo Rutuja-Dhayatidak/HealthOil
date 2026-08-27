@@ -243,6 +243,7 @@ const approveProduct = async (req, res) => {
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     product.status = 'ACTIVE';
+    product.approvedAt = new Date();
     await product.save();
     
     res.json({ success: true, message: 'Product approved successfully', product });
@@ -259,6 +260,7 @@ const rejectProduct = async (req, res) => {
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     product.status = 'REJECTED';
+    product.rejectedAt = new Date();
     await product.save();
     
     res.json({ success: true, message: 'Product rejected successfully', product });
@@ -269,6 +271,34 @@ const rejectProduct = async (req, res) => {
 };
 
 
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await VendorProduct.findByIdAndDelete(id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    
+    res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Admin delete product error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const product = await VendorProduct.findByIdAndUpdate(id, updateData, { new: true });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    
+    res.json({ success: true, message: 'Product updated successfully', product });
+  } catch (error) {
+    console.error('Admin update product error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 const getAllOrders = async (req, res) => {
   try {
     const ordersRaw = await Order.find({})
@@ -278,7 +308,7 @@ const getAllOrders = async (req, res) => {
 
     for (let order of ordersRaw) {
       if (order.user) {
-        let userDoc = await WebsiteUser.findById(order.user).select('name phone email').lean();
+        let userDoc = await WebsiteUser.findById(order.user).select('fullName email mobile').lean();
         if (!userDoc) {
           userDoc = await MobileUser.findById(order.user).select('name phone email').lean();
         }
@@ -306,5 +336,7 @@ module.exports = {
   getAllProducts,
   approveProduct,
   rejectProduct,
+  updateProduct,
+  deleteProduct,
   getAllOrders
 };

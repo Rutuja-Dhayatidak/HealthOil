@@ -33,9 +33,9 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const categories = ['All Categories', 'Mustard Oil', 'Groundnut Oil', 'Coconut Oil', 'Sesame Oil', 'Cold Pressed Oils', 'Wood Pressed Oils']
   
-  const [radius, setRadius] = useState('30 km')
+  const [radius, setRadius] = useState('300 km')
   const [showRadiusDropdown, setShowRadiusDropdown] = useState(false)
-  const radiusOptions = ['5 km', '10 km', '20 km', '30 km']
+  const radiusOptions = ['5 km', '10 km', '20 km', '30 km', '50 km', '100 km', '200 km', '300 km']
 
   const [activeTab, setActiveTab] = useState('All Shops')
 
@@ -48,20 +48,32 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
     return `${hr12}:${m} ${ampm}`;
   };
 
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 2.5;
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d < 1 ? Number(d.toFixed(2)) : Number(d.toFixed(1));
+  };
+
   useEffect(() => {
     const loadRealShops = async () => {
       setLoading(true)
       const res = await fetchPublicShops()
       if (res && res.success && res.shops) {
-        // We will mock some extra data like delivery or ratings to match the mockup perfectly if needed
         const catList = ['Mustard Oil', 'Groundnut Oil', 'Coconut Oil', 'Sesame Oil', 'Cold Pressed Oils', 'Wood Pressed Oils'];
-        // Consistent random generator based on string
         const getConsistentRandom = (str, salt = 0) => {
           let hash = salt;
           for (let i = 0; i < str.length; i++) {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
           }
-          return Math.abs(hash) / 2147483647; // 0 to ~1
+          return Math.abs(hash) / 2147483647;
         };
 
         const enhancedShops = res.shops.map((shop, i) => {
@@ -70,37 +82,38 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
           const r3 = getConsistentRandom(shop.id || String(i), 3);
           
           // Determine base lat/lng from address
-          let baseLat = 12.9352; // Default Bangalore
-          let baseLng = 77.6245;
+          let baseLat = 18.6200; // Pune approx
+          let baseLng = 73.8000;
           const addressLower = (shop.address || '').toLowerCase();
           
-          if (addressLower.includes('pune') || addressLower.includes('aakhurdi')) {
-            baseLat = 18.6200; // Pune approx
-            baseLng = 73.8000;
-          } else if (addressLower.includes('mumbai')) {
+          if (addressLower.includes('mumbai')) {
             baseLat = 19.0760;
             baseLng = 72.8777;
           } else if (addressLower.includes('delhi')) {
             baseLat = 28.7041;
             baseLng = 77.1025;
+          } else if (addressLower.includes('bangalore') || addressLower.includes('bengaluru')) {
+            baseLat = 12.9352;
+            baseLng = 77.6245;
           }
+          
+          const lat = (shop.lat && shop.lat !== 35) ? shop.lat : baseLat + (r1 - 0.5) * 0.15;
+          const lng = (shop.lng && shop.lng !== 40) ? shop.lng : baseLng + (r2 - 0.5) * 0.15;
           
           return {
             ...shop,
-            distance: (r1 * 15).toFixed(1), // Consistent distance 0-15km for demo
-            deliveryAvailable: r2 > 0.3,
+            deliveryAvailable: r2 > 0.2,
             minOrder: '₹499',
             reviews: shop.reviews || Math.floor(r3 * 500) + 50,
             category: catList[i % catList.length],
-            // Ignore backend hardcoded 35,40 if it exists by checking if it's 35
-            lat: (shop.lat && shop.lat !== 35) ? shop.lat : baseLat + (r1 - 0.5) * 0.08,
-            lng: (shop.lng && shop.lng !== 40) ? shop.lng : baseLng + (r2 - 0.5) * 0.08
+            lat,
+            lng,
+            distance: (r1 * 25 + 1).toFixed(1)
           }
         })
         setShopsList(enhancedShops)
         if (enhancedShops.length > 0) {
           setSelectedShopId(enhancedShops[0].id)
-          // Automatically center map to the first shop's city
           setUserLatLng([enhancedShops[0].lat, enhancedShops[0].lng])
           if (enhancedShops[0].address && enhancedShops[0].address.toLowerCase().includes('pune')) {
             setLocationText('Pune, Maharashtra');
@@ -148,22 +161,40 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
     );
   };
 
-  const filteredShops = shopsList.filter(shop => {
-    // Tab filter
-    if (activeTab !== 'All Shops' && !shop.category?.toLowerCase().includes(activeTab.toLowerCase()) && !shop.specialty?.toLowerCase().includes(activeTab.toLowerCase())) {
-      return false
-    }
-    // Category dropdown filter
-    if (category !== 'All Categories' && !shop.category?.toLowerCase().includes(category.toLowerCase()) && !shop.specialty?.toLowerCase().includes(category.toLowerCase())) {
-      return false
-    }
-    // Radius filter
-    const maxDist = parseInt(radius.split(' ')[0]);
-    if (parseFloat(shop.distance) > maxDist) {
-      return false
-    }
-    return true
-  }).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+  const maxDist = parseInt(radius.split(' ')[0]) || 300;
+
+  const filteredShops = shopsList
+    .map(shop => {
+      const computedDist = calculateDistance(userLatLng[0], userLatLng[1], shop.lat, shop.lng);
+      return {
+        ...shop,
+        distance: computedDist
+      };
+    })
+    .filter(shop => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = shop.name?.toLowerCase().includes(q);
+        const matchAddr = shop.address?.toLowerCase().includes(q);
+        const matchCat = shop.category?.toLowerCase().includes(q);
+        if (!matchName && !matchAddr && !matchCat) return false;
+      }
+      // Tab filter
+      if (activeTab !== 'All Shops' && !shop.category?.toLowerCase().includes(activeTab.toLowerCase()) && !shop.specialty?.toLowerCase().includes(activeTab.toLowerCase())) {
+        return false;
+      }
+      // Category dropdown filter
+      if (category !== 'All Categories' && !shop.category?.toLowerCase().includes(category.toLowerCase()) && !shop.specialty?.toLowerCase().includes(category.toLowerCase())) {
+        return false;
+      }
+      // Radius filter
+      if (parseFloat(shop.distance) > maxDist) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#1a1a1a] font-sans selection:bg-[#005c4a]/20 selection:text-[#005c4a] text-left py-4 sm:py-6 animate-landing">
@@ -452,93 +483,113 @@ export default function NearbyShops({ onBackToShop, onSelectShop, userLocation =
 
           {/* Right: Shop Cards List */}
           <div className="lg:col-span-7 flex flex-col gap-5 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
-            {filteredShops.slice(0, 6).map((shop, i) => (
-              <div key={shop.id || i} className="bg-white border border-[#005c4a] rounded-none p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.2)] transition-shadow flex flex-col sm:flex-row gap-5 relative group">
-
-                {/* Image (Left) */}
-                <div className="w-full sm:w-[160px] h-[160px] rounded-none overflow-hidden relative shrink-0">
-                  <div className="absolute top-2 left-2 bg-gray-800/85 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    {shop.distance || '0.4'} km
-                  </div>
-                  <img
-                    src={shop.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'}
-                    alt={shop.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-
-                {/* Details (Right) */}
-                <div className="flex-1 flex flex-col relative py-1">
-                  {/* Heart */}
-                  <button className="absolute top-0 right-0 text-gray-300 hover:text-red-500 transition-colors">
-                    <Heart className="w-5 h-5" />
-                  </button>
-
-                  {/* Title & Open */}
-                  <div className="flex items-center gap-3 pr-8 mb-2">
-                    <h3 className="text-lg font-bold text-gray-900">{shop.name}</h3>
-                    <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">
-                      Open
-                    </span>
-                  </div>
-
-                  {/* Address */}
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{shop.address || 'Aakhurdi, pune, maharastra, 411001'}</span>
-                  </div>
-
-                  {/* Rating & Category */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-[11px] font-bold">
-                      <Star className="w-3 h-3 fill-current" />
-                      {shop.rating} <span className="font-normal text-yellow-600/70">({shop.reviews})</span>
-                    </div>
-                    <div className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded text-[11px] font-medium">
-                      {shop.categories?.[0] || 'Oil'}
-                    </div>
-                  </div>
-
-                  {/* Delivery info */}
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 font-medium mb-5">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-gray-400" /> Pickup available
-                    </div>
-                    <div className="w-1 h-1 rounded-full bg-gray-200"></div>
-                    <div className="text-gray-600 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-gray-400" />
-                      <span>
-                        {shop.storeProfile?.openTime && shop.storeProfile?.closeTime 
-                          ? `${formatTime(shop.storeProfile.openTime)} - ${formatTime(shop.storeProfile.closeTime)}`
-                          : shop.timing || 'Closes at 10:00 PM'}
-                      </span>
-                      {shop.storeProfile?.operatingDays && shop.storeProfile.operatingDays.length > 0 && (
-                        <span className="text-gray-400 ml-1">
-                          ({shop.storeProfile.operatingDays.length === 7 ? 'All Days' : shop.storeProfile.operatingDays.map(d => d.slice(0, 3)).join(', ')})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex items-center gap-3 mt-auto">
-                    <button
-                      onClick={() => onSelectShop(shop)}
-                      className="flex-1 py-2 border border-gray-200 rounded-lg text-gray-700 font-bold text-xs hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors"
-                    >
-                      View Store <ArrowRight className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => onSelectShop(shop)}
-                      className="flex-1 py-2 bg-[#005c4a] text-white rounded-lg font-bold text-xs hover:bg-[#004d40] shadow-sm transition-colors"
-                    >
-                      Browse Products
-                    </button>
-                  </div>
-
-                </div>
+            {filteredShops.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-none p-12 text-center flex flex-col items-center justify-center">
+                <Store className="w-12 h-12 text-gray-300 mb-3" />
+                <h3 className="text-base font-bold text-gray-800">No Shops Found</h3>
+                <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                  Try increasing your search radius or clearing category filters to find shops near you.
+                </p>
+                <button
+                  onClick={() => {
+                    setRadius('300 km');
+                    setCategory('All Categories');
+                    setSearchQuery('');
+                  }}
+                  className="mt-4 px-4 py-2 bg-[#005c4a] text-white text-xs font-bold rounded hover:bg-[#004d40] transition-colors"
+                >
+                  Reset Filters (300 km)
+                </button>
               </div>
-            ))}
+            ) : (
+              filteredShops.map((shop, i) => (
+                <div key={shop.id || i} className="bg-white border border-[#005c4a] rounded-none p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.2)] transition-shadow flex flex-col sm:flex-row gap-5 relative group">
+
+                  {/* Image (Left) */}
+                  <div className="w-full sm:w-[160px] h-[160px] rounded-none overflow-hidden relative shrink-0">
+                    <div className="absolute top-2 left-2 bg-gray-800/85 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm">
+                      {shop.distance || '0.4'} km
+                    </div>
+                    <img
+                      src={shop.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'}
+                      alt={shop.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+
+                  {/* Details (Right) */}
+                  <div className="flex-1 flex flex-col relative py-1">
+                    {/* Heart */}
+                    <button className="absolute top-0 right-0 text-gray-300 hover:text-red-500 transition-colors">
+                      <Heart className="w-5 h-5" />
+                    </button>
+
+                    {/* Title & Open */}
+                    <div className="flex items-center gap-3 pr-8 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900">{shop.name}</h3>
+                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">
+                        Open
+                      </span>
+                    </div>
+
+                    {/* Address */}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{shop.address || 'Aakhurdi, pune, maharastra, 411001'}</span>
+                    </div>
+
+                    {/* Rating & Category */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center gap-1.5 bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-[11px] font-bold">
+                        <Star className="w-3 h-3 fill-current" />
+                        {shop.rating} <span className="font-normal text-yellow-600/70">({shop.reviews})</span>
+                      </div>
+                      <div className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded text-[11px] font-medium">
+                        {shop.category || shop.specialty || 'Oil'}
+                      </div>
+                    </div>
+
+                    {/* Delivery info */}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500 font-medium mb-5">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-gray-400" /> Pickup available
+                      </div>
+                      <div className="w-1 h-1 rounded-full bg-gray-200"></div>
+                      <div className="text-gray-600 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        <span>
+                          {shop.storeProfile?.openTime && shop.storeProfile?.closeTime 
+                            ? `${formatTime(shop.storeProfile.openTime)} - ${formatTime(shop.storeProfile.closeTime)}`
+                            : shop.timing || 'Closes at 10:00 PM'}
+                        </span>
+                        {shop.storeProfile?.operatingDays && shop.storeProfile.operatingDays.length > 0 && (
+                          <span className="text-gray-400 ml-1">
+                            ({shop.storeProfile.operatingDays.length === 7 ? 'All Days' : shop.storeProfile.operatingDays.map(d => d.slice(0, 3)).join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex items-center gap-3 mt-auto">
+                      <button
+                        onClick={() => onSelectShop(shop)}
+                        className="flex-1 py-2 border border-gray-200 rounded-lg text-gray-700 font-bold text-xs hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors"
+                      >
+                        View Store <ArrowRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onSelectShop(shop)}
+                        className="flex-1 py-2 bg-[#005c4a] text-white rounded-lg font-bold text-xs hover:bg-[#004d40] shadow-sm transition-colors"
+                      >
+                        Browse Products
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
         </div>

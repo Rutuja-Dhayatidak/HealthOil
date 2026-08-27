@@ -107,7 +107,10 @@ export default function AddProductWizard() {
     }
   }, [isEditMode, productDataRes, reset])
 
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || uploadMutation.isPending
+
   const onNext = async () => {
+    if (isSubmitting) return
     // Validate current step before proceeding
     const isStepValid = await trigger()
     if (isStepValid) {
@@ -120,13 +123,15 @@ export default function AddProductWizard() {
   }
 
   const onPrev = () => {
+    if (isSubmitting) return
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1)
     }
   }
 
   const onSubmit = (data) => {
-    toast.loading(isEditMode ? 'Updating product...' : 'Publishing product...', { id: 'publish' })
+    if (isSubmitting) return
+    toast.loading(isEditMode ? 'Updating product...' : 'Submitting product for Admin review...', { id: 'publish' })
     
     // We send data without File objects in JSON to createProduct first
     const productData = { ...data, mainImage: undefined, gallery: undefined }
@@ -148,27 +153,28 @@ export default function AddProductWizard() {
            uploadMutation.mutate({ id: productId, formData }, {
              onSuccess: () => {
                 if (!isEditMode) localStorage.removeItem('vendor_product_draft')
-                toast.success(isEditMode ? 'Product updated with images!' : 'Product published with images!', { id: 'publish' })
+                toast.success(isEditMode ? 'Product updated with images!' : 'Product submitted for Admin approval successfully!', { id: 'publish' })
                 navigate('/vendor/products')
              },
              onError: (err) => {
-                toast.error(isEditMode ? 'Details updated but images failed' : 'Product created but images failed', { id: 'publish' })
+                toast.error(isEditMode ? 'Details updated but images failed' : 'Product submitted but image upload failed', { id: 'publish' })
                 navigate('/vendor/products')
              }
            });
         } else {
           if (!isEditMode) localStorage.removeItem('vendor_product_draft')
-          toast.success(isEditMode ? 'Product updated successfully!' : 'Product published successfully!', { id: 'publish' })
+          toast.success(isEditMode ? 'Product updated successfully!' : 'Product submitted for Admin approval successfully!', { id: 'publish' })
           navigate('/vendor/products')
         }
       },
       onError: (err) => {
-        toast.error(err.message || (isEditMode ? 'Failed to update product' : 'Failed to publish product'), { id: 'publish' })
+        toast.error(err.message || (isEditMode ? 'Failed to update product' : 'Failed to submit product for review'), { id: 'publish' })
       }
     })
   }
 
   const handleSaveDraft = () => {
+    if (isSubmitting) return
     localStorage.setItem('vendor_product_draft', JSON.stringify(methods.getValues()))
     toast.success('Draft saved successfully! You can safely close this page.')
   }
@@ -229,8 +235,8 @@ export default function AddProductWizard() {
       <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex justify-between items-center px-8">
         <button
           onClick={onPrev}
-          disabled={currentStep === 1}
-          className="px-6 py-2 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 disabled:opacity-50 hover:bg-gray-50"
+          disabled={currentStep === 1 || isSubmitting}
+          className="px-6 py-2 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
         >
           Back
         </button>
@@ -238,7 +244,8 @@ export default function AddProductWizard() {
         <div className="flex items-center gap-4">
           <button
             onClick={handleSaveDraft}
-            className="px-6 py-2 border border-[#D4AF37]/40 text-[#002F24] rounded-xl text-sm font-bold hover:bg-[#F8F2E7]/40"
+            disabled={isSubmitting}
+            className="px-6 py-2 border border-[#D4AF37]/40 text-[#002F24] rounded-xl text-sm font-bold hover:bg-[#F8F2E7]/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             Save Draft
           </button>
@@ -246,12 +253,25 @@ export default function AddProductWizard() {
           <button
             type="button"
             onClick={onNext}
-            disabled={createMutation.isPending}
-            className="px-6 py-2 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-sm active:scale-95"
           >
-            {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            {currentStep === steps.length ? 'Publish Product' : 'Continue'}
-            {currentStep !== steps.length && <ChevronRight className="w-4 h-4" />}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>{isEditMode ? 'Updating Product...' : 'Submitting to Admin...'}</span>
+              </>
+            ) : currentStep === steps.length ? (
+              <>
+                <span>Publish Product</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                <span>Continue</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
       </div>

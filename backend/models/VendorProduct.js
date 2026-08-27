@@ -61,7 +61,9 @@ const vendorProductSchema = new mongoose.Schema({
     type: String,
     enum: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED'],
     default: 'PENDING_APPROVAL'
-  }
+  },
+  approvedAt: { type: Date },
+  rejectedAt: { type: Date }
 }, {
   timestamps: true
 });

@@ -13,6 +13,8 @@ const {
   getAllProducts,
   approveProduct,
   rejectProduct,
+  updateProduct,
+  deleteProduct,
   getAllOrders
 } = require('../controllers/adminController');
 
@@ -30,6 +32,8 @@ router.patch('/vendors/:id/reject', rejectVendor);
 router.get('/products', getAllProducts);
 router.patch('/products/:id/approve', approveProduct);
 router.patch('/products/:id/reject', rejectProduct);
+router.put('/products/:id', updateProduct);
+router.delete('/products/:id', deleteProduct);
 
 router.get('/orders', getAllOrders);
 

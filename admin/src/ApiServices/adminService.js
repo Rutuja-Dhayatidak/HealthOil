@@ -111,3 +111,21 @@ export const rejectProduct = async (id) => {
     throw error.response?.data || error.message;
   }
 };
+
+export const updateProductAdmin = async (id, data) => {
+  try {
+    const response = await api.put(`/admin/products/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const deleteProductAdmin = async (id) => {
+  try {
+    const response = await api.delete(`/admin/products/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};

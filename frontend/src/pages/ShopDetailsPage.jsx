@@ -8,7 +8,6 @@
   import Navbar from '../components/Navbar'
   import ProductDetailsDrawer from '../components/ProductDetailsDrawer'
   import { fetchPublicShopDetails } from '../ApiServices/publicShopService'
-  import { reviewService } from '../ApiServices/reviewService'
   import { MapContainer, TileLayer, Marker } from 'react-leaflet'
   import 'leaflet/dist/leaflet.css'
   import L from 'leaflet'
@@ -21,10 +20,12 @@
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   });
 
-  export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops, onAddToCart, cartCount, onOpenCart, onOpenNearbyShops, onOpenProfile }) {
+  export default function ShopDetailsPage({ shop: initialShopProps, onBackToShops, onSelectShop, onAddToCart, cartCount, onOpenCart, onOpenNearbyShops, onOpenProfile }) {
     const [shop, setShop] = useState(initialShopProps)
     const [productsList, setProductsList] = useState([])
     const [shopReviews, setShopReviews] = useState([])
+    const [similarShops, setSimilarShops] = useState([])
+    const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(false)
     const [activeFilter, setActiveFilter] = useState('All Products')
     const [quantities, setQuantities] = useState({})
@@ -52,32 +53,17 @@
             setShop(prev => ({ ...prev, ...res.shop }))
           }
           
-          // Mock data enhancement for visual matching
-          const enhancedProducts = (res.products || []).map(p => ({
+          const formattedProducts = (res.products || []).map(p => ({
             ...p,
-            mrp: p.mrp || Math.floor(p.price * 1.2),
-            discount: p.discount || Math.floor(Math.random() * 10 + 10),
-            reviews: p.reviews || Math.floor(Math.random() * 200 + 50),
-            rating: p.rating || (Math.random() * 0.5 + 4.5).toFixed(1)
+            rating: p.rating || 4.5,
+            reviews: p.reviews || 0
           }))
           
-          setProductsList(enhancedProducts.length ? enhancedProducts : [
-            { id: '1', name: 'Cold Pressed Coconut Oil', size: '500 ml', price: 299, mrp: 349, discount: 14, rating: 4.7, reviews: 210, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
-            { id: '2', name: 'Cold Pressed Mustard Oil', size: '1 L', price: 229, mrp: 269, discount: 15, rating: 4.6, reviews: 185, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
-            { id: '3', name: 'Extra Virgin Olive Oil', size: '500 ml', price: 499, mrp: 599, discount: 17, rating: 4.7, reviews: 162, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' },
-            { id: '4', name: 'Cold Pressed Sesame Oil', size: '1 L', price: 279, mrp: 399, discount: 15, rating: 4.6, reviews: 139, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400' }
-          ])
-        }
-        
-        // Fetch reviews
-        try {
-          const vendorId = initialShopProps.id || initialShopProps._id;
-          const revData = await reviewService.getShopReviews(vendorId);
-          if (revData.success) {
-            setShopReviews(revData.reviews);
-          }
-        } catch (err) {
-          console.error('Failed to load reviews');
+          setProductsList(formattedProducts)
+          setShopReviews(res.reviews || [])
+        } else {
+          setProductsList([])
+          setShopReviews([])
         }
 
         setLoading(false)
@@ -345,7 +331,7 @@
               {/* Top Bar (Tabs + Search) */}
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar w-full md:w-auto pb-2 md:pb-0">
-                  {['All Products', 'Edible Oils', 'Hair Oils', 'Essential Oils', 'Ayurvedic Oils', 'Cold Pressed'].map((tab) => (
+                  {['All Products', ...new Set(productsList.map(p => p.pressedType || p.category || p.brandName).filter(Boolean))].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveFilter(tab)}
@@ -363,88 +349,140 @@
                   <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input 
                     type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search in this shop..." 
                     className="w-full h-10 pl-9 pr-4 rounded-none border border-gray-200 text-xs font-medium focus:outline-none focus:border-[#005c4a] transition-colors bg-[#f8f9f8]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-                {productsList.map((product) => {
-                  const isAdded = addedItemIds.includes(product.id)
-                  const qty = quantities[product.id] || 1
-                  return (
-                    <div 
-                      key={product.id}
-                      className="bg-white border border-gray-100 rounded-none p-3 sm:p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-[#005c4a]/20 transition-all duration-300 flex flex-col relative group cursor-pointer"
-                      onClick={() => setSelectedProductForDrawer(product)}
+              {/* Products Grid or Empty State */}
+              {productsList.filter(p => {
+                if (activeFilter !== 'All Products') {
+                  const cat = (p.pressedType || p.category || p.brandName || '').toLowerCase();
+                  if (!cat.includes(activeFilter.toLowerCase())) return false;
+                }
+                if (searchQuery.trim()) {
+                  const q = searchQuery.toLowerCase();
+                  const matchName = p.name?.toLowerCase().includes(q);
+                  const matchDesc = p.description?.toLowerCase().includes(q);
+                  if (!matchName && !matchDesc) return false;
+                }
+                return true;
+              }).length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-none p-12 text-center flex flex-col items-center justify-center">
+                  <ShoppingBag className="w-12 h-12 text-gray-300 mb-3" />
+                  <h3 className="text-base font-bold text-gray-800">No Products Found</h3>
+                  <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                    {searchQuery || activeFilter !== 'All Products'
+                      ? 'No products matched your search or category filter.'
+                      : 'This shop does not have any products listed yet.'}
+                  </p>
+                  {(searchQuery || activeFilter !== 'All Products') && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setActiveFilter('All Products');
+                      }}
+                      className="mt-4 px-4 py-2 bg-[#005c4a] text-white text-xs font-bold rounded hover:bg-[#004d40] transition-colors"
                     >
-                      {/* Image Area */}
-                      <div className="w-full h-[140px] sm:h-[180px] mb-4 bg-[#f8f9f8] rounded-none relative flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={product.image} 
-                          alt={product.name} 
-                          className="w-full h-full object-cover mix-blend-multiply group-hover:scale-110 transition-transform duration-500" 
-                        />
-                      </div>
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                  {productsList.filter(p => {
+                    if (activeFilter !== 'All Products') {
+                      const cat = (p.pressedType || p.category || p.brandName || '').toLowerCase();
+                      if (!cat.includes(activeFilter.toLowerCase())) return false;
+                    }
+                    if (searchQuery.trim()) {
+                      const q = searchQuery.toLowerCase();
+                      const matchName = p.name?.toLowerCase().includes(q);
+                      const matchDesc = p.description?.toLowerCase().includes(q);
+                      if (!matchName && !matchDesc) return false;
+                    }
+                    return true;
+                  }).map((product) => {
+                    const isAdded = addedItemIds.includes(product.id)
+                    const qty = quantities[product.id] || 1
+                    return (
+                      <div 
+                        key={product.id}
+                        className="bg-white border border-gray-100 rounded-none p-3 sm:p-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-[#005c4a]/20 transition-all duration-300 flex flex-col relative group cursor-pointer"
+                        onClick={() => setSelectedProductForDrawer(product)}
+                      >
+                        {/* Image Area */}
+                        <div className="w-full h-[140px] sm:h-[180px] mb-4 bg-[#f8f9f8] rounded-none relative flex items-center justify-center overflow-hidden">
+                          <img 
+                            src={product.image || 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=400'} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover mix-blend-multiply group-hover:scale-110 transition-transform duration-500" 
+                          />
+                        </div>
 
-                      {/* Content Area */}
-                      <div className="flex-1 flex flex-col text-left">
-                        <h3 className="font-bold text-gray-900 text-xs sm:text-[15px] leading-tight line-clamp-2 group-hover:text-[#005c4a]">
-                          {product.name}
-                        </h3>
-                        <span className="text-[11px] text-gray-500 mt-1 block font-medium">{product.size}</span>
-                        
-                        <div className="flex items-center gap-1.5 mt-2.5 mb-3 text-[10px] sm:text-[11px]">
-                          <div className="flex items-center text-yellow-500">
-                            <Star className="w-3.5 h-3.5 fill-current" />
-                            <Star className="w-3.5 h-3.5 fill-current" />
-                            <Star className="w-3.5 h-3.5 fill-current" />
-                            <Star className="w-3.5 h-3.5 fill-current" />
-                            <Star className="w-3.5 h-3.5 fill-current" />
+                        {/* Content Area */}
+                        <div className="flex-1 flex flex-col text-left">
+                          <h3 className="font-bold text-gray-900 text-xs sm:text-[15px] leading-tight line-clamp-2 group-hover:text-[#005c4a]">
+                            {product.name}
+                          </h3>
+                          {product.size && <span className="text-[11px] text-gray-500 mt-1 block font-medium">{product.size}</span>}
+                          
+                          <div className="flex items-center gap-1.5 mt-2.5 mb-3 text-[10px] sm:text-[11px]">
+                            <div className="flex items-center text-yellow-500">
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                            </div>
+                            <span className="font-bold text-gray-700">{product.rating || '4.5'}</span>
+                            <span className="text-gray-400">({product.reviews || 0})</span>
                           </div>
-                          <span className="font-bold text-gray-700">{product.rating}</span>
-                          <span className="text-gray-400">({product.reviews})</span>
-                        </div>
 
-                        <div className="mt-auto flex flex-col gap-1 mb-4">
-                          <div className="flex items-end gap-2.5">
-                            <span className="text-[17px] font-extrabold text-gray-900">₹{product.price}</span>
-                            <span className="text-[11px] text-gray-400 line-through mb-0.5">₹{product.mrp}</span>
+                          <div className="mt-auto flex flex-col gap-1 mb-4">
+                            <div className="flex items-end gap-2.5">
+                              <span className="text-[17px] font-extrabold text-gray-900">₹{product.price}</span>
+                              {product.mrp && product.mrp > product.price && (
+                                <span className="text-[11px] text-gray-400 line-through mb-0.5">₹{product.mrp}</span>
+                              )}
+                            </div>
+                            <span className="bg-emerald-50 text-emerald-700 text-[9px] font-extrabold px-2.5 py-0.5 rounded-none w-max tracking-wide uppercase border border-emerald-100 mt-1">
+                              {product.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                            </span>
                           </div>
-                          <span className="bg-emerald-50 text-emerald-700 text-[9px] font-extrabold px-2.5 py-0.5 rounded-none w-max tracking-wide uppercase border border-emerald-100 mt-1">
-                            In Stock
-                          </span>
-                        </div>
 
-                        <div className="flex items-center gap-2 w-full">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleAddToCartClick(product)
-                            }}
-                            className="w-10 h-10 rounded-none border-2 border-gray-100 text-[#005c4a] flex items-center justify-center hover:bg-[#005c4a] hover:border-[#005c4a] hover:text-white transition-all shrink-0"
-                          >
-                            <ShoppingCart className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleAddToCartClick(product)
-                            }}
-                            disabled={isAdded}
-                            className={`flex-1 h-10 rounded-none font-bold text-xs flex items-center justify-center transition-all shadow-sm ${
-                              isAdded ? 'bg-emerald-600 text-white border border-emerald-600' : 'bg-[#005c4a] text-white hover:bg-[#004d40] border border-[#005c4a]'
-                            }`}
-                          >
-                            {isAdded ? 'Added' : 'Buy Now'}
-                          </button>
+                          <div className="flex items-center gap-2 w-full">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAddToCartClick(product)
+                              }}
+                              className="w-10 h-10 rounded-none border-2 border-gray-100 text-[#005c4a] flex items-center justify-center hover:bg-[#005c4a] hover:border-[#005c4a] hover:text-white transition-all shrink-0"
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAddToCartClick(product)
+                              }}
+                              disabled={isAdded}
+                              className={`flex-1 h-10 rounded-none font-bold text-xs flex items-center justify-center transition-all shadow-sm ${
+                                isAdded ? 'bg-emerald-600 text-white border border-emerald-600' : 'bg-[#005c4a] text-white hover:bg-[#004d40] border border-[#005c4a]'
+                              }`}
+                            >
+                              {isAdded ? 'Added' : 'Buy Now'}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Bottom Section: Reviews & You may also like */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
@@ -457,7 +495,9 @@
                   </div>
                   <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
                     {shopReviews.length === 0 ? (
-                      <div className="text-[11px] text-gray-500 italic p-4">No featured reviews yet for this shop.</div>
+                      <div className="text-[11px] text-gray-500 italic p-4 bg-white border border-gray-100 rounded-none w-full text-center">
+                        No reviews yet for this shop.
+                      </div>
                     ) : shopReviews.map((rev) => (
                       <div key={rev._id} className="min-w-[200px] bg-white border border-gray-100 rounded-xl p-3 text-left shadow-sm flex flex-col justify-between">
                         <div className="flex items-center gap-2 mb-2">
@@ -478,46 +518,49 @@
                           </div>
                         </div>
                         <p className="text-[9px] text-gray-600 line-clamp-3 leading-relaxed">"{rev.comment}"</p>
-                        <p className="text-[8px] text-[#005c4a] mt-1 font-bold">Purchased: {rev.productName}</p>
+                        {rev.productName && <p className="text-[8px] text-[#005c4a] mt-1 font-bold">Purchased: {rev.productName}</p>}
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* You may also like snippet */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-gray-900">You may also like</h3>
-                    <button className="text-[11px] font-bold text-[#005c4a] hover:underline">View All</button>
-                  </div>
-                  <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
-                    {[
-                      {name: 'PureDrop Store', rating: 4.5, reviews: 186, distance: '2.6', time: '20-30 mins'},
-                      {name: 'Shree Ayur Oils', rating: 4.7, reviews: 234, distance: '2.4', time: '25-30 mins'},
-                      {name: 'Fresh Press Oils', rating: 4.6, reviews: 153, distance: '2.9', time: '30-40 mins'}
-                    ].map((like, i) => (
-                      <div key={i} className="min-w-[220px] bg-white border border-gray-100 rounded-xl p-3 flex gap-3 shadow-sm">
-                        <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden shrink-0">
-                          <img src={`https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=200&sig=${i}`} alt="shop" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 flex flex-col text-left">
-                          <h4 className="text-[11px] font-bold text-gray-900 truncate">{like.name}</h4>
-                          <div className="flex items-center gap-1 text-[9px] mt-0.5">
-                            <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
-                            <span className="font-bold text-gray-700">{like.rating}</span>
-                            <span className="text-gray-400">({like.reviews})</span>
+                {similarShops.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-gray-900">You may also like</h3>
+                      <button onClick={onBackToShops} className="text-[11px] font-bold text-[#005c4a] hover:underline">View All Shops</button>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+                      {similarShops.map((like) => (
+                        <div key={like.id} className="min-w-[220px] bg-white border border-gray-100 rounded-none p-3 flex gap-3 shadow-sm">
+                          <div className="w-16 h-16 rounded-none bg-gray-200 overflow-hidden shrink-0">
+                            <img src={like.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=200'} alt={like.name} className="w-full h-full object-cover" />
                           </div>
-                          <div className="text-[9px] text-gray-500 mt-1">
-                            {like.distance} km • {like.time}
+                          <div className="flex-1 flex flex-col text-left">
+                            <h4 className="text-[11px] font-bold text-gray-900 truncate">{like.name}</h4>
+                            <div className="flex items-center gap-1 text-[9px] mt-0.5">
+                              <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
+                              <span className="font-bold text-gray-700">{like.rating || '4.5'}</span>
+                              <span className="text-gray-400">({like.reviews || 0})</span>
+                            </div>
+                            <div className="text-[9px] text-gray-500 mt-1">
+                              {like.distance || '2.5'} km away
+                            </div>
+                            <button 
+                              onClick={() => {
+                                if (onSelectShop) onSelectShop(like)
+                              }}
+                              className="mt-auto py-1 bg-[#005c4a] text-white text-[9px] font-bold rounded-none hover:bg-[#004d40] transition-colors"
+                            >
+                              View Shop
+                            </button>
                           </div>
-                          <button className="mt-auto py-1 bg-[#005c4a] text-white text-[9px] font-bold rounded-lg hover:bg-[#004d40]">
-                            View Shop
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
               </div>
 
