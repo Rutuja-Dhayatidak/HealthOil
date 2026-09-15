@@ -15,12 +15,14 @@ import Products from './vendor/pages/Products'
 import Inventory from './vendor/pages/Inventory'
 import Shop from './vendor/pages/Shop'
 
+import OffersPage from './vendor/pages/OffersPage'
+import VendorRegistrationDetails from './vendor/pages/VendorRegistrationDetails'
+import ReviewsPage from './vendor/pages/ReviewsPage'
+
 // Import Additional pages
 import {
-  Offers,
   Settlements,
   Returns,
-  Reviews,
   Reports,
   Notifications,
   Staff,
@@ -76,16 +78,18 @@ function App() {
           <Route path="vendor/products/edit/:id" element={<Products />} />
           <Route path="vendor/inventory" element={<Inventory />} />
           <Route path="vendor/shop" element={<Shop />} />
-          <Route path="vendor/offers" element={<Offers />} />
+          <Route path="vendor/offers" element={<OffersPage />} />
+          <Route path="vendor/promotions" element={<OffersPage />} />
           <Route path="vendor/settlements" element={<Settlements />} />
           <Route path="vendor/returns" element={<Returns />} />
-          <Route path="vendor/reviews" element={<Reviews />} />
+          <Route path="vendor/reviews" element={<ReviewsPage />} />
           <Route path="vendor/reports" element={<Reports />} />
           <Route path="vendor/notifications" element={<Notifications />} />
           <Route path="vendor/staff" element={<Staff />} />
           <Route path="vendor/support" element={<Support />} />
           <Route path="vendor/contact-support" element={<Support />} />
           <Route path="vendor/settings" element={<Settings />} />
+          <Route path="vendor/registration-details" element={<VendorRegistrationDetails />} />
         </Route>
 
         {/* Catch-all redirect */}

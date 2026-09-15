@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Review = require('../models/Review');
+const VendorProduct = require('../models/VendorProduct');
 const { protect } = require('../middleware/authMiddleware');
 
 // @route   POST /api/reviews
@@ -30,10 +31,34 @@ router.post('/', protect, async (req, res) => {
 // @desc    Get all reviews for a vendor (Vendor side)
 router.get('/vendor/:vendorId', async (req, res) => {
   try {
-    const reviews = await Review.find({ vendor: req.params.vendorId })
-      .populate('user', 'name')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, reviews });
+    const [reviews, products] = await Promise.all([
+      Review.find({ vendor: req.params.vendorId })
+        .populate('user', 'name email phone')
+        .sort({ createdAt: -1 }),
+      VendorProduct.find({ vendor: req.params.vendorId })
+    ]);
+
+    const enrichedReviews = reviews.map(rev => {
+      const revObj = rev.toObject();
+      const matchedProd = products.find(p => 
+        (p.basicDetails?.name && rev.productName && p.basicDetails.name.trim().toLowerCase() === rev.productName.trim().toLowerCase()) ||
+        (rev.productName && p.basicDetails?.name && rev.productName.toLowerCase().includes(p.basicDetails.name.toLowerCase())) ||
+        (rev.productName && p.basicDetails?.name && p.basicDetails.name.toLowerCase().includes(rev.productName.toLowerCase()))
+      );
+
+      if (matchedProd) {
+        revObj.productImage = matchedProd.images?.mainImage || 
+                              (matchedProd.images?.gallery && matchedProd.images?.gallery[0]) || 
+                              matchedProd.bannerImage || 
+                              matchedProd.image || null;
+        revObj.oilType = matchedProd.compliance?.oilType;
+        revObj.brandName = matchedProd.basicDetails?.brandName;
+        revObj.productId = matchedProd._id;
+      }
+      return revObj;
+    });
+
+    res.json({ success: true, reviews: enrichedReviews });
   } catch (error) {
     console.error('Error fetching vendor reviews:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -49,10 +74,32 @@ router.put('/:id/feature', async (req, res) => {
       req.params.id,
       { isFeatured },
       { new: true }
-    );
+    ).populate('user', 'name email phone');
     res.json({ success: true, review });
   } catch (error) {
     console.error('Error toggling feature status:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/reviews/:id/reply
+// @desc    Vendor replies to customer review
+router.put('/:id/reply', async (req, res) => {
+  try {
+    const { message } = req.body;
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { 
+        vendorReply: {
+          message,
+          repliedAt: new Date()
+        }
+      },
+      { new: true }
+    ).populate('user', 'name email phone');
+    res.json({ success: true, message: 'Reply sent successfully', review });
+  } catch (error) {
+    console.error('Error replying to review:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

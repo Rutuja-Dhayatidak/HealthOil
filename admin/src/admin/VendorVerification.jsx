@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FileCheck, Search, ShieldCheck, CheckCircle, XCircle, FileText, Download, Building2, User, Phone, Mail, MapPin, CreditCard, AlertTriangle, Eye } from 'lucide-react'
+import { FileCheck, Search, ShieldCheck, CheckCircle, XCircle, FileText, Download, Building2, User, Phone, Mail, MapPin, CreditCard, AlertTriangle, Eye, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getPendingVendors, getApprovedVendors, approveVendor, rejectVendor } from '../ApiServices/adminService'
+import SendVendorLinkModal from './SendVendorLinkModal'
 
 function VendorVerification({ refreshStats }) {
   const [activeFilter, setActiveFilter] = useState('ALL_PENDING')
@@ -10,6 +11,7 @@ function VendorVerification({ refreshStats }) {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedVendor, setSelectedVendor] = useState(null)
+  const [sendLinkVendor, setSendLinkVendor] = useState(null)
   
   useEffect(() => {
     fetchVendors()
@@ -233,6 +235,14 @@ function VendorVerification({ refreshStats }) {
                       <td className="px-4 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
+                            onClick={() => setSendLinkVendor(vendor)}
+                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            title="Send Link to Vendor"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Send Link
+                          </button>
+                          <button 
                             onClick={() => setSelectedVendor(vendor)}
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
                           >
@@ -436,6 +446,13 @@ function VendorVerification({ refreshStats }) {
               >
                 Close
               </button>
+
+              <button 
+                onClick={() => setSendLinkVendor(selectedVendor)}
+                className="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Send className="w-4 h-4" /> Send Link
+              </button>
               
               <button 
                 onClick={() => handleReject(selectedVendor._id)}
@@ -455,6 +472,13 @@ function VendorVerification({ refreshStats }) {
           </div>
         </div>
       )}
+
+      {/* Send Vendor Link Modal */}
+      <SendVendorLinkModal
+        isOpen={Boolean(sendLinkVendor)}
+        onClose={() => setSendLinkVendor(null)}
+        vendor={sendLinkVendor}
+      />
 
     </div>
   )

@@ -18,10 +18,23 @@ export default function LedgerPanel({ variantId = 'ALL' }) {
     from: '',
     to: '',
     page: 1,
-    limit: 10
+    limit: 15
   })
 
   const { data, isLoading, isError, error, refetch } = useLedger(filters)
+
+  const currentPage = filters.page || 1
+  const limit = filters.limit || 15
+  const totalCount = data?._meta?.total || 0
+  const totalPages = Math.ceil(totalCount / limit) || 1
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return
+    setFilters(prev => ({ ...prev, page: newPage }))
+  }
+
+  const startRecord = totalCount === 0 ? 0 : (currentPage - 1) * limit + 1
+  const endRecord = Math.min(currentPage * limit, totalCount)
 
   return (
     <div className="bg-white border border-[#D4AF37]/20 rounded-2xl p-6 shadow-sm flex flex-col min-h-[400px]">
@@ -81,20 +94,20 @@ export default function LedgerPanel({ variantId = 'ALL' }) {
           
           <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
             <span className="text-[10px] text-gray-500">
-              Showing page {data?._meta?.page || 1} of {Math.ceil((data?._meta?.total || 1) / (data?._meta?.limit || 10))}
+              Showing {startRecord} to {endRecord} of {totalCount} logs (15 / page)
             </span>
             <div className="flex gap-2">
               <button 
-                disabled={filters.page === 1}
-                onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
-                className="px-3 py-1 border border-gray-200 rounded text-[10px] font-bold disabled:opacity-50"
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="px-3 py-1 border border-gray-200 rounded text-[10px] font-bold disabled:opacity-40 cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 Previous
               </button>
               <button 
-                disabled={filters.page >= Math.ceil((data?._meta?.total || 1) / (data?._meta?.limit || 10))}
-                onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
-                className="px-3 py-1 border border-gray-200 rounded text-[10px] font-bold disabled:opacity-50"
+                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="px-3 py-1 border border-gray-200 rounded text-[10px] font-bold disabled:opacity-40 cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 Next
               </button>

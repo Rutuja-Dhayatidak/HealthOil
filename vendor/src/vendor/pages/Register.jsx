@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ShieldCheck, Upload, AlertCircle } from 'lucide-react'
-import { registerVendor, loginVendor, saveBusinessDetails, uploadVendorDocument, saveBankDetails, submitApplication } from '../../ApiServices/vendorAuthService'
+import { ArrowLeft, ArrowRight, ShieldCheck, Upload, AlertCircle, MapPin, Building, ChevronDown, Loader2 } from 'lucide-react'
+import { registerVendor, loginVendor, saveBusinessDetails, uploadVendorDocument, saveBankDetails, submitApplication, getActiveCitiesApi } from '../../ApiServices/vendorAuthService'
 import toast from 'react-hot-toast'
 
 export default function Register() {
@@ -9,11 +9,17 @@ export default function Register() {
   const [step, setStep] = useState(1)
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
+  
+  // Dynamic Cities & Sub-Cities
+  const [activeCities, setActiveCities] = useState([])
+  const [availableSubCities, setAvailableSubCities] = useState([])
+  const [citiesLoading, setCitiesLoading] = useState(false)
+
   const [formData, setFormData] = useState({
     // Step 1
     ownerName: '', mobile: '', email: '', password: '', confirmPassword: '',
     // Step 2
-    shopName: '', businessType: 'Partnership', address: '', city: '', state: '', pincode: '', mapsLocation: '', latitude: '28.6139', longitude: '77.2090',
+    shopName: '', businessType: 'Partnership', address: '', city: '', subCity: '', state: '', pincode: '', mapsLocation: '', latitude: '28.6139', longitude: '77.2090',
     // Step 3
     gstNumber: '', fssaiNumber: '', shopRegNumber: '', panNumber: '',
     // Step 4
@@ -22,14 +28,76 @@ export default function Register() {
     holderName: '', bankName: '', accountNumber: '', confirmAccount: '', ifscCode: '', accountType: 'Current'
   })
 
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        setCitiesLoading(true)
+        const res = await getActiveCitiesApi()
+        if (res?.success && Array.isArray(res.cities)) {
+          setActiveCities(res.cities)
+        }
+      } catch (err) {
+        console.error('Failed to load active cities:', err)
+      } finally {
+        setCitiesLoading(false)
+      }
+    }
+    fetchCities()
+  }, [])
+
   const handleTextChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  // Handle City Selection -> Auto fills State and loads Sub-cities
+  const handleCityChange = (e) => {
+    const selectedCityName = e.target.value
+    const selectedCityObj = activeCities.find(c => c.name.toLowerCase() === selectedCityName.toLowerCase())
+
+    if (selectedCityObj) {
+      const cityAreas = selectedCityObj.areas || []
+      setAvailableSubCities(cityAreas)
+      setFormData(prev => ({
+        ...prev,
+        city: selectedCityObj.name,
+        state: selectedCityObj.state || prev.state,
+        subCity: '',
+        pincode: ''
+      }))
+    } else {
+      setAvailableSubCities([])
+      setFormData(prev => ({
+        ...prev,
+        city: selectedCityName,
+        subCity: '',
+        pincode: ''
+      }))
+    }
+  }
+
+  // Handle Sub-City Selection -> Auto fills Pincode
+  const handleSubCityChange = (e) => {
+    const selectedAreaName = e.target.value
+    const selectedAreaObj = availableSubCities.find(a => a.name.toLowerCase() === selectedAreaName.toLowerCase())
+
+    if (selectedAreaObj) {
+      setFormData(prev => ({
+        ...prev,
+        subCity: selectedAreaObj.name,
+        pincode: selectedAreaObj.pincode || prev.pincode
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        subCity: selectedAreaName
+      }))
+    }
+  }
+
   const handleFileChange = (e, fieldName) => {
     const file = e.target.files[0]
-    setFormData(prev => ({ ...prev, [fieldName]: file })) // Save actual file object
+    setFormData(prev => ({ ...prev, [fieldName]: file }))
   }
 
   const handleNext = () => {
@@ -64,6 +132,7 @@ export default function Register() {
         panNumber: formData.panNumber,
         address: {
           addressLine1: formData.address,
+          subCity: formData.subCity,
           city: formData.city,
           state: formData.state,
           pincode: formData.pincode
@@ -169,6 +238,8 @@ export default function Register() {
         {step === 2 && (
           <div className="space-y-4">
             <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Store Profile & Address</h3>
+            
+            {/* Shop Name & Business Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Shop Name</label>
@@ -183,24 +254,99 @@ export default function Register() {
                 </select>
               </div>
             </div>
+
+            {/* Full Shop Address */}
             <div>
               <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Full Shop Address</label>
               <input type="text" name="address" value={formData.address} onChange={handleTextChange} placeholder="Shop 12, Link Road, Block C" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            {/* City & Sub-City Selection Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* City Dropdown */}
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">City</label>
-                <input type="text" name="city" value={formData.city} onChange={handleTextChange} placeholder="New Delhi" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
+                  <span>City <span className="text-red-500">*</span></span>
+                  {citiesLoading && <span className="text-[8px] text-gray-400 font-normal">Loading cities...</span>}
+                </label>
+                <select
+                  name="city"
+                  value={formData.city}
+                  onChange={handleCityChange}
+                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium"
+                >
+                  <option value="">Select City</option>
+                  {activeCities.map(c => (
+                    <option key={c._id} value={c.name}>
+                      {c.name} {c.state ? `(${c.state})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Sub-City / Area Dropdown */}
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">State</label>
-                <input type="text" name="state" value={formData.state} onChange={handleTextChange} placeholder="Delhi" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Pincode</label>
-                <input type="text" name="pincode" value={formData.pincode} onChange={handleTextChange} placeholder="110001" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
+                  <span>Sub-City / Area (Locality)</span>
+                  {availableSubCities.length > 0 && (
+                    <span className="text-[8px] text-[#002F24] font-semibold">{availableSubCities.length} areas</span>
+                  )}
+                </label>
+                <select
+                  name="subCity"
+                  value={formData.subCity}
+                  onChange={handleSubCityChange}
+                  disabled={!formData.city}
+                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!formData.city ? 'Select City first' : (availableSubCities.length === 0 ? 'No sub-areas (Enter address)' : 'Select Sub-City / Area')}
+                  </option>
+                  {availableSubCities.map(a => (
+                    <option key={a._id} value={a.name}>
+                      {a.name} {a.pincode ? `- ${a.pincode}` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+
+            {/* State & Pincode Row (Auto-filled) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* State (Auto-filled from City) */}
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
+                  <span>State</span>
+                  {formData.city && <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>}
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleTextChange}
+                  placeholder="e.g. Maharashtra"
+                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]"
+                />
+              </div>
+
+              {/* Pincode (Auto-filled from Sub-city) */}
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
+                  <span>Pincode</span>
+                  {formData.subCity && formData.pincode && <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>}
+                </label>
+                <input
+                  type="text"
+                  name="pincode"
+                  value={formData.pincode}
+                  onChange={handleTextChange}
+                  placeholder="e.g. 411045"
+                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]"
+                />
+              </div>
+            </div>
+
+            {/* Maps & Coordinates */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-50 pt-3">
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Maps Location URL</label>
@@ -229,64 +375,55 @@ export default function Register() {
               </div>
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">FSSAI Licence Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <input type="text" name="fssaiNumber" value={formData.fssaiNumber} onChange={handleTextChange} placeholder="12345678901234" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <input type="text" name="fssaiNumber" value={formData.fssaiNumber} onChange={handleTextChange} placeholder="10012011000123" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Shop Licence / Reg Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <input type="text" name="shopRegNumber" value={formData.shopRegNumber} onChange={handleTextChange} placeholder="SL/984210" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Shop & Establishment Reg Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
+                <input type="text" name="shopRegNumber" value={formData.shopRegNumber} onChange={handleTextChange} placeholder="REG/DEL/2023/1234" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Business PAN Card Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Business PAN Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
                 <input type="text" name="panNumber" value={formData.panNumber} onChange={handleTextChange} placeholder="ABCDE1234F" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 4: Documents Upload */}
+        {/* Step 4: Documents */}
         {step === 4 && (
           <div className="space-y-4">
             <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Document Proof Uploads</h3>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">Aadhaar Card PDF <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-[10px] text-gray-500 truncate">{formData.aadhaarDoc?.name || 'Upload Aadhaar'}</span>
-                  <input type="file" onChange={(e) => handleFileChange(e, 'aadhaarDoc')} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
+              <div className="border border-dashed border-[#D4AF37]/40 rounded-2xl p-4 bg-[#F8F2E7]/20 text-center relative group">
+                <input type="file" onChange={(e) => handleFileChange(e, 'panDoc')} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                <Upload className="w-5 h-5 mx-auto text-[#002F24] mb-1" />
+                <p className="text-[10px] font-bold text-[#002F24]">Business PAN Card</p>
+                <span className="text-[8px] text-gray-400">{formData.panDoc ? formData.panDoc.name : 'Upload PDF or JPG (Max 5MB)'}</span>
               </div>
-
-              <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">PAN Card PDF <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-[10px] text-gray-500 truncate">{formData.panDoc?.name || 'Upload PAN'}</span>
-                  <input type="file" onChange={(e) => handleFileChange(e, 'panDoc')} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
+              <div className="border border-dashed border-[#D4AF37]/40 rounded-2xl p-4 bg-[#F8F2E7]/20 text-center relative group">
+                <input type="file" onChange={(e) => handleFileChange(e, 'gstDoc')} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                <Upload className="w-5 h-5 mx-auto text-[#002F24] mb-1" />
+                <p className="text-[10px] font-bold text-[#002F24]">GST Certificate</p>
+                <span className="text-[8px] text-gray-400">{formData.gstDoc ? formData.gstDoc.name : 'Upload PDF or JPG (Max 5MB)'}</span>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">GST Registration Certificate <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-[10px] text-gray-500 truncate">{formData.gstDoc?.name || 'Upload Certificate'}</span>
-                  <input type="file" onChange={(e) => handleFileChange(e, 'gstDoc')} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="border border-dashed border-[#D4AF37]/40 rounded-2xl p-4 bg-[#F8F2E7]/20 text-center relative group">
+                <input type="file" onChange={(e) => handleFileChange(e, 'fssaiDoc')} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                <Upload className="w-5 h-5 mx-auto text-[#002F24] mb-1" />
+                <p className="text-[10px] font-bold text-[#002F24]">FSSAI Certificate</p>
+                <span className="text-[8px] text-gray-400">{formData.fssaiDoc ? formData.fssaiDoc.name : 'Upload PDF or JPG (Max 5MB)'}</span>
               </div>
-
-              <div>
-                <label className="block text-[9px] font-bold text-gray-500 mb-1">FSSAI Licence Document <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <div className="relative border border-dashed border-[#D4AF37]/45 rounded-xl p-3 flex items-center justify-center gap-2 cursor-pointer bg-[#F8F2E7]/20">
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-[10px] text-gray-500 truncate">{formData.fssaiDoc?.name || 'Upload FSSAI'}</span>
-                  <input type="file" onChange={(e) => handleFileChange(e, 'fssaiDoc')} className="absolute inset-0 opacity-0 cursor-pointer" />
-                </div>
+              <div className="border border-dashed border-[#D4AF37]/40 rounded-2xl p-4 bg-[#F8F2E7]/20 text-center relative group">
+                <input type="file" onChange={(e) => handleFileChange(e, 'aadhaarDoc')} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                <Upload className="w-5 h-5 mx-auto text-[#002F24] mb-1" />
+                <p className="text-[10px] font-bold text-[#002F24]">Owner Aadhaar / ID</p>
+                <span className="text-[8px] text-gray-400">{formData.aadhaarDoc ? formData.aadhaarDoc.name : 'Upload PDF or JPG (Max 5MB)'}</span>
               </div>
-
             </div>
           </div>
         )}
@@ -294,7 +431,7 @@ export default function Register() {
         {/* Step 5: Bank details */}
         {step === 5 && (
           <div className="space-y-4">
-            <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Bank Payout Account</h3>
+            <h3 className="font-serif font-bold text-sm text-[#002F24] border-b border-gray-100 pb-2">Bank & Payout Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 mb-1">Account Holder Name <span className="font-normal lowercase text-gray-400">(optional)</span></label>
@@ -338,7 +475,7 @@ export default function Register() {
             <div className="bg-[#F8F2E7]/30 border border-[#D4AF37]/20 rounded-2xl p-4 text-xs space-y-2 text-gray-600">
               <p>👤 Owner: <span className="font-bold text-[#002F24]">{formData.ownerName || 'N/A'}</span></p>
               <p>🏪 Shop: <span className="font-bold text-[#002F24]">{formData.shopName || 'N/A'}</span> ({formData.businessType})</p>
-              <p>📍 Address: <span className="font-bold text-[#002F24]">{formData.address || 'N/A'}, {formData.city}</span></p>
+              <p>📍 Address: <span className="font-bold text-[#002F24]">{formData.address || 'N/A'}{formData.subCity ? `, ${formData.subCity}` : ''}, {formData.city}, {formData.state} - {formData.pincode}</span></p>
               <p>📄 Licences: GST: {formData.gstNumber || 'N/A'} | FSSAI: {formData.fssaiNumber || 'N/A'}</p>
               <p>🏦 Account: {formData.bankName} - Account: **********{formData.accountNumber.slice(-4)}</p>
             </div>

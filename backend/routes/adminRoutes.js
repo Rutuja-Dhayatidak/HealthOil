@@ -15,6 +15,7 @@ const {
   rejectProduct,
   updateProduct,
   deleteProduct,
+  updateVendor,
   getAllOrders
 } = require('../controllers/adminController');
 
@@ -28,6 +29,7 @@ router.get('/vendors/pending', getPendingVendors);
 router.get('/vendors/approved', getApprovedVendors);
 router.patch('/vendors/:id/approve', approveVendor);
 router.patch('/vendors/:id/reject', rejectVendor);
+router.put('/vendors/:id', updateVendor);
 
 router.get('/products', getAllProducts);
 router.patch('/products/:id/approve', approveProduct);

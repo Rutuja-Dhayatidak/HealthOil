@@ -8,6 +8,7 @@ const publicShopRoutes = require("./routes/publicShopRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const cityRoutes = require("./routes/cityRoutes");
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/cities", cityRoutes);
+app.use("/api/cities", cityRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/v1/vendor", vendorProductRoutes);
 app.use("/api/public", publicShopRoutes);

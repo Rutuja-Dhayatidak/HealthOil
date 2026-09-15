@@ -124,4 +124,102 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-module.exports = { registerVendor, sendOtp, verifyOtp, loginVendor, forgotPassword };
+const getVendorRegistrationDetails = async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.user.id).select('-password');
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    res.json({ success: true, vendor });
+  } catch (error) {
+    console.error('Get registration details error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const updateVendorRegistrationDetails = async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.user.id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    const {
+      fullName,
+      email,
+      mobile,
+      business,
+      bank,
+      pickupAddress
+    } = req.body;
+
+    // Check unique email/mobile if changed
+    if (email && email !== vendor.email) {
+      const existingEmail = await Vendor.findOne({ email, _id: { $ne: vendor._id } });
+      if (existingEmail) {
+        return res.status(400).json({ success: false, message: 'Email is already registered by another vendor' });
+      }
+      vendor.email = email;
+    }
+
+    if (mobile && mobile !== vendor.mobile) {
+      const existingMobile = await Vendor.findOne({ mobile, _id: { $ne: vendor._id } });
+      if (existingMobile) {
+        return res.status(400).json({ success: false, message: 'Mobile is already registered by another vendor' });
+      }
+      vendor.mobile = mobile;
+    }
+
+    if (fullName) vendor.fullName = fullName;
+
+    // Update business details
+    if (business) {
+      vendor.business = {
+        ...vendor.business?.toObject?.() || vendor.business || {},
+        ...business,
+        address: {
+          ...vendor.business?.address?.toObject?.() || vendor.business?.address || {},
+          ...(business.address || {})
+        }
+      };
+    }
+
+    // Update bank details
+    if (bank) {
+      vendor.bank = {
+        ...vendor.bank?.toObject?.() || vendor.bank || {},
+        ...bank
+      };
+    }
+
+    // Update pickup address
+    if (pickupAddress) {
+      vendor.pickupAddress = {
+        ...vendor.pickupAddress?.toObject?.() || vendor.pickupAddress || {},
+        ...pickupAddress
+      };
+    }
+
+    await vendor.save();
+
+    const updatedVendor = await Vendor.findById(vendor._id).select('-password');
+    res.json({
+      success: true,
+      message: 'Vendor registration details updated successfully',
+      vendor: updatedVendor
+    });
+  } catch (error) {
+    console.error('Update registration details error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+module.exports = { 
+  registerVendor, 
+  sendOtp, 
+  verifyOtp, 
+  loginVendor, 
+  forgotPassword,
+  getVendorRegistrationDetails,
+  updateVendorRegistrationDetails
+};

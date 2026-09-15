@@ -8,6 +8,7 @@ import {
   RefreshCcw, 
   CreditCard,
   PieChart,
+  Tag,
   Megaphone,
   Star,
   Store, 
@@ -17,7 +18,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Droplet
+  Droplet,
+  UserCheck
 } from 'lucide-react'
 
 function VendorSidebar() {
@@ -61,7 +63,8 @@ function VendorSidebar() {
     {
       title: 'MARKETING',
       items: [
-        { name: 'Promotions', path: '/vendor/offers', icon: Megaphone },
+        { name: 'Offers', path: '/vendor/offers', icon: Tag },
+        { name: 'Promotions', path: '/vendor/promotions', icon: Megaphone },
         { name: 'Reviews', path: '/vendor/reviews', icon: Star },
       ]
     },
@@ -143,8 +146,23 @@ function VendorSidebar() {
         ))}
       </nav>
 
-      {/* Logout button footer */}
-      <div className="p-4 border-t border-blue-400/20">
+      {/* Sidebar Footer: Update Registration & Logout */}
+      <div className="p-3 border-t border-blue-400/20 space-y-1">
+        {/* Update Registration Details Button */}
+        <Link
+          to="/vendor/registration-details"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
+            location.pathname === '/vendor/registration-details'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-blue-100 hover:bg-blue-800/50 hover:text-white'
+          }`}
+          title="Update Registration Details"
+        >
+          <UserCheck className="w-4 h-4 shrink-0 text-amber-300" />
+          {!isCollapsed && <span className="truncate">Update Registration</span>}
+        </Link>
+
+        {/* Logout button */}
         <button 
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-white hover:bg-blue-800/50 transition-all duration-150 cursor-pointer"

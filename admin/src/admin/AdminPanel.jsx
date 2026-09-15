@@ -21,7 +21,8 @@ import {
   Bell,
   HelpCircle as HelpIcon,
   LogOut,
-  Droplet
+  Droplet,
+  MapPin
 } from 'lucide-react'
 
 // Import subpages
@@ -34,6 +35,7 @@ import Users from './Users'
 import Settings from './Settings'
 import ProductApproval from './ProductApproval'
 import VendorVerification from './VendorVerification'
+import CityManagement from './CityManagement'
 
 function AdminPanel() {
   const { tab } = useParams()
@@ -77,6 +79,7 @@ function AdminPanel() {
     { id: 'users', name: 'Customers', icon: UsersIcon, badge: stats.customers > 0 ? String(stats.customers) : undefined },
     { id: 'shops', name: 'Vendors', icon: Store, badge: stats.vendors > 0 ? String(stats.vendors) : undefined },
     { id: 'verification', name: 'Vendor Verification', icon: FileCheck, badge: stats.vendorVerification > 0 ? String(stats.vendorVerification) : undefined, badgeColor: 'bg-green-600' },
+    { id: 'cities', name: 'Manage Cities', icon: MapPin },
     { id: 'products', name: 'Products', icon: Package, badge: stats.products > 0 ? String(stats.products) : undefined },
     { id: 'approval', name: 'Product Approval', icon: CheckSquare, badge: stats.productApproval > 0 ? String(stats.productApproval) : undefined, badgeColor: 'bg-green-600' },
     { id: 'orders', name: 'Orders', icon: ShoppingBag, badge: stats.orders > 0 ? String(stats.orders) : undefined, badgeColor: 'bg-green-600' },
@@ -213,12 +216,13 @@ function AdminPanel() {
           {activeTab === 'orders' && <Orders />}
           {activeTab === 'shops' && <Shops />}
           {activeTab === 'verification' && <VendorVerification refreshStats={fetchStats} />}
+          {activeTab === 'cities' && <CityManagement />}
           {activeTab === 'products' && <Products refreshStats={fetchStats} />}
           {activeTab === 'approval' && <ProductApproval refreshStats={fetchStats} />}
           {activeTab === 'users' && <Users />}
           {activeTab === 'settings' && <Settings />}
           {/* Fallback for non-existing tabs */}
-          {!['dashboard', 'orders', 'shops', 'verification', 'products', 'approval', 'users', 'settings'].includes(activeTab) && <Dashboard stats={stats} />}
+          {!['dashboard', 'orders', 'shops', 'verification', 'cities', 'products', 'approval', 'users', 'settings'].includes(activeTab) && <Dashboard stats={stats} />}
         </div>
       </main>
 

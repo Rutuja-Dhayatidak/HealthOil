@@ -120,21 +120,62 @@ const createProduct = async (req, res) => {
 const getProducts = async (req, res) => {
   try {
     const vendorId = req.user.id;
-    const { q, status } = req.query;
+    const { q, status, page, limit = 15 } = req.query;
 
     const query = { vendor: vendorId };
-    if (q) {
-      query['basicDetails.name'] = { $regex: q, $options: 'i' };
+    if (q && q.trim()) {
+      query.$or = [
+        { 'basicDetails.name': { $regex: q.trim(), $options: 'i' } },
+        { 'basicDetails.brandName': { $regex: q.trim(), $options: 'i' } },
+        { 'compliance.oilType': { $regex: q.trim(), $options: 'i' } }
+      ];
     }
     if (status && status !== 'ALL') {
       query.status = status;
+    }
+
+    if (page !== undefined && page !== null && page !== '') {
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.max(1, parseInt(limit) || 15);
+      const skip = (pageNum - 1) * limitNum;
+
+      const [products, totalCount] = await Promise.all([
+        VendorProduct.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum),
+        VendorProduct.countDocuments(query)
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limitNum) || 1;
+
+      return res.json({
+        success: true,
+        data: products,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalProducts: totalCount,
+          limit: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      });
     }
 
     const products = await VendorProduct.find(query).sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      data: products
+      data: products,
+      pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalProducts: products.length,
+        limit: products.length,
+        hasNextPage: false,
+        hasPrevPage: false
+      }
     });
   } catch (error) {
     console.error('Get products error:', error);
@@ -226,7 +267,7 @@ const updateProduct = async (req, res) => {
 const getInventory = async (req, res) => {
   try {
     const vendorId = req.user.id;
-    const { q, status, page = 1, limit = 20 } = req.query;
+    const { q, status, page = 1, limit = 15 } = req.query;
 
     const query = { vendor: vendorId };
     if (q) {
@@ -262,12 +303,20 @@ const getInventory = async (req, res) => {
         }
         summary.all++;
 
+        const prodImg = p.images?.mainImage || 
+                        (p.images?.gallery && p.images?.gallery[0]) || 
+                        p.bannerImage || 
+                        p.image || null;
+
         allRows.push({
           variantId: v._id,
           productId: p._id,
-          productName: p.basicDetails.name,
+          productName: p.basicDetails?.name || 'Untitled Product',
+          productImage: prodImg,
+          brandName: p.basicDetails?.brandName || '',
+          oilType: p.compliance?.oilType || '',
           skuCode: v.sku || 'N/A',
-          variantLabel: `${v.size} ${v.unit}`,
+          variantLabel: `${v.size || ''} ${v.unit || ''}`.trim() || 'Standard',
           physicalStock: physical,
           reserved: 0,
           available: physical,
@@ -283,8 +332,10 @@ const getInventory = async (req, res) => {
     }
 
     const total = allRows.length;
-    const startIndex = (Number(page) - 1) * Number(limit);
-    const paginatedRows = allRows.slice(startIndex, startIndex + Number(limit));
+    const limitNum = Number(limit) || 15;
+    const pageNum = Number(page) || 1;
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedRows = allRows.slice(startIndex, startIndex + limitNum);
 
     res.json({
       success: true,
@@ -294,9 +345,13 @@ const getInventory = async (req, res) => {
       },
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)) || 1
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum) || 1,
+        totalSkus: summary.all,
+        inStock: summary.inStock,
+        lowStock: summary.lowStock,
+        outOfStock: summary.outOfStock
       }
     });
   } catch (error) {

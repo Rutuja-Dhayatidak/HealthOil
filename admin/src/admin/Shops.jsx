@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Store, Search, ShieldCheck, CheckCircle, XCircle, FileText, Download } from 'lucide-react'
+import { Store, Search, ShieldCheck, CheckCircle, XCircle, FileText, Download, Pencil, Loader2, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { getPendingVendors, getApprovedVendors, approveVendor, rejectVendor } from '../ApiServices/adminService'
+import { getPendingVendors, getApprovedVendors, approveVendor, rejectVendor, updateVendorAdmin } from '../ApiServices/adminService'
+import VendorEditDrawer from './VendorEditDrawer'
+import SendVendorLinkModal from './SendVendorLinkModal'
 
 function Shops() {
   const [activeTab, setActiveTab] = useState('pending')
@@ -9,6 +11,14 @@ function Shops() {
   const [approvedVendors, setApprovedVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedVendor, setSelectedVendor] = useState(null)
+
+  // Edit drawer states
+  const [editVendor, setEditVendor] = useState(null)
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
+  const [isEditLoading, setIsEditLoading] = useState(false)
+
+  // Send link modal state
+  const [sendLinkVendor, setSendLinkVendor] = useState(null)
   
   useEffect(() => {
     fetchVendors()
@@ -54,6 +64,30 @@ function Shops() {
       fetchVendors()
     } catch (error) {
       toast.error("Rejection failed")
+    }
+  }
+
+  const handleOpenEdit = (vendor) => {
+    setEditVendor(vendor)
+    setIsEditDrawerOpen(true)
+    setSelectedVendor(null) // Close review modal if open
+  }
+
+  const handleSaveEdit = async (vendorId, payload) => {
+    if (isEditLoading) return
+    try {
+      setIsEditLoading(true)
+      const res = await updateVendorAdmin(vendorId, payload)
+      if (res.success) {
+        toast.success('Vendor updated successfully!')
+        setEditVendor(null)
+        setIsEditDrawerOpen(false)
+        fetchVendors()
+      }
+    } catch (error) {
+      toast.error('Failed to update vendor')
+    } finally {
+      setIsEditLoading(false)
     }
   }
 
@@ -137,13 +171,35 @@ function Shops() {
                       {new Date(vendor.submittedAt || vendor.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <button 
-                        onClick={() => setSelectedVendor(vendor)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors duration-200 cursor-pointer shadow-sm"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Review
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Edit Button */}
+                        <button 
+                          onClick={() => handleOpenEdit(vendor)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                          title="Edit Vendor Details"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Send Link Button */}
+                        <button 
+                          onClick={() => setSendLinkVendor(vendor)}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="Send Link to Vendor"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Send Link
+                        </button>
+
+                        {/* Review Button */}
+                        <button 
+                          onClick={() => setSelectedVendor(vendor)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors duration-200 cursor-pointer shadow-sm"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          Review
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -159,7 +215,21 @@ function Shops() {
           <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 shadow-xl border border-[#b89547]/30">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-serif font-bold text-[#031d13]">Vendor Application Review</h3>
-              <button onClick={() => setSelectedVendor(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer text-sm font-bold">Close</button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setSendLinkVendor(selectedVendor)}
+                  className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" /> Send Link
+                </button>
+                <button 
+                  onClick={() => handleOpenEdit(selectedVendor)}
+                  className="px-3 py-2 border border-blue-200 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> Edit Details
+                </button>
+                <button onClick={() => setSelectedVendor(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer text-sm font-bold ml-2">Close</button>
+              </div>
             </div>
 
             {selectedVendor.onboardingStatus !== 'UNDER_REVIEW' && selectedVendor.onboardingStatus !== 'DOCUMENTS_PENDING' && (
@@ -252,6 +322,25 @@ function Shops() {
           </div>
         </div>
       )}
+
+      {/* Vendor Edit Drawer */}
+      <VendorEditDrawer
+        isOpen={isEditDrawerOpen}
+        onClose={() => {
+          setIsEditDrawerOpen(false)
+          setEditVendor(null)
+        }}
+        vendor={editVendor}
+        onSave={handleSaveEdit}
+        isLoading={isEditLoading}
+      />
+
+      {/* Send Vendor Link Modal */}
+      <SendVendorLinkModal
+        isOpen={Boolean(sendLinkVendor)}
+        onClose={() => setSendLinkVendor(null)}
+        vendor={sendLinkVendor}
+      />
     </div>
   )
 }
