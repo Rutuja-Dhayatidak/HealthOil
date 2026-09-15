@@ -10,8 +10,81 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  backend-check:
+    name: Test & Check Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        run: npm install
+        working-directory: backend
+
+  frontend-build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & Build Frontend
+        run: npm install && npm run build
+        working-directory: frontend
+
+  admin-build:
+    name: Build Admin Panel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install & Build Admin Panel
+        run: npm install && npm run build
+        working-directory: admin
+
+  vendor-build:
+    name: Build Vendor Portal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vendor/package-lock.json
+
+      - name: Install & Build Vendor Portal
+        run: npm install && npm run build
+        working-directory: vendor
+
   deploy:
     name: Deploy to VPS
+    needs:
+      - backend-check
+      - frontend-build
+      - admin-build
+      - vendor-build
     runs-on: ubuntu-latest
 
     steps:
