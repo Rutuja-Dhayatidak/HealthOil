@@ -124,8 +124,14 @@ jobs:
             git reset --hard "origin/$DEPLOY_REF"
             echo "📌 Deploying commit: $(git rev-parse HEAD)"
             
-            echo "🐳 Building and restarting Docker containers..."
-            docker compose up -d --build --force-recreate --remove-orphans
+            echo "🐳 Building Docker images..."
+            docker compose build
+
+            echo "🧹 Stopping the existing Compose stack before rebinding ports..."
+            docker compose down --remove-orphans
+
+            echo "🚀 Starting Docker containers..."
+            docker compose up -d --force-recreate --remove-orphans
 
             echo "🔎 Verifying running containers..."
             docker compose ps
