@@ -130,6 +130,21 @@ jobs:
             echo "🧹 Stopping the existing Compose stack before rebinding ports..."
             docker compose down --remove-orphans
 
+            echo "🔌 Releasing ports 80 and 443 from old VPS services..."
+            for service in nginx apache2; do
+              if systemctl is-active --quiet "$service"; then
+                echo "Stopping host service: $service"
+                systemctl stop "$service"
+              fi
+            done
+
+            PORT_CONTAINERS="$(docker ps -q --filter publish=80 --filter publish=443)"
+            if [ -n "$PORT_CONTAINERS" ]; then
+              echo "Stopping containers that still publish ports 80/443: $PORT_CONTAINERS"
+              docker stop $PORT_CONTAINERS
+              docker rm $PORT_CONTAINERS
+            fi
+
             echo "🚀 Starting Docker containers..."
             docker compose up -d --force-recreate --remove-orphans
 
