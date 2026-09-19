@@ -14,6 +14,8 @@ export default function Register() {
   const [activeCities, setActiveCities] = useState([])
   const [availableSubCities, setAvailableSubCities] = useState([])
   const [citiesLoading, setCitiesLoading] = useState(false)
+  const [isCustomCity, setIsCustomCity] = useState(false)
+  const [isCustomSubCity, setIsCustomSubCity] = useState(false)
 
   const [formData, setFormData] = useState({
     // Step 1
@@ -53,11 +55,27 @@ export default function Register() {
   // Handle City Selection -> Auto fills State and loads Sub-cities
   const handleCityChange = (e) => {
     const selectedCityName = e.target.value
+
+    if (selectedCityName === '__custom_city__') {
+      setIsCustomCity(true)
+      setIsCustomSubCity(true)
+      setAvailableSubCities([])
+      setFormData(prev => ({
+        ...prev,
+        city: '',
+        subCity: '',
+        pincode: ''
+      }))
+      return
+    }
+
     const selectedCityObj = activeCities.find(c => c.name.toLowerCase() === selectedCityName.toLowerCase())
 
     if (selectedCityObj) {
       const cityAreas = selectedCityObj.areas || []
       setAvailableSubCities(cityAreas)
+      setIsCustomCity(false)
+      setIsCustomSubCity(false)
       setFormData(prev => ({
         ...prev,
         city: selectedCityObj.name,
@@ -67,6 +85,7 @@ export default function Register() {
       }))
     } else {
       setAvailableSubCities([])
+      setIsCustomSubCity(false)
       setFormData(prev => ({
         ...prev,
         city: selectedCityName,
@@ -79,6 +98,17 @@ export default function Register() {
   // Handle Sub-City Selection -> Auto fills Pincode
   const handleSubCityChange = (e) => {
     const selectedAreaName = e.target.value
+
+    if (selectedAreaName === '__custom_subcity__') {
+      setIsCustomSubCity(true)
+      setFormData(prev => ({
+        ...prev,
+        subCity: '',
+        pincode: ''
+      }))
+      return
+    }
+
     const selectedAreaObj = availableSubCities.find(a => a.name.toLowerCase() === selectedAreaName.toLowerCase())
 
     if (selectedAreaObj) {
@@ -263,61 +293,156 @@ export default function Register() {
 
             {/* City & Sub-City Selection Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* City Dropdown */}
+              {/* City Dropdown / Custom Input */}
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
                   <span>City <span className="text-red-500">*</span></span>
-                  {citiesLoading && <span className="text-[8px] text-gray-400 font-normal">Loading cities...</span>}
+                  <div className="flex items-center gap-1.5">
+                    {citiesLoading && <span className="text-[8px] text-gray-400 font-normal">Loading cities...</span>}
+                    {!isCustomCity ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCity(true)
+                          setIsCustomSubCity(true)
+                          setAvailableSubCities([])
+                          setFormData(prev => ({ ...prev, city: '', subCity: '', pincode: '' }))
+                        }}
+                        className="text-[8px] text-[#002F24] font-bold hover:underline bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        title="Can't find your city? Type manually"
+                      >
+                        + Add City
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCity(false)
+                          setIsCustomSubCity(false)
+                          setFormData(prev => ({ ...prev, city: '', subCity: '', pincode: '', state: '' }))
+                        }}
+                        className="text-[8px] text-[#002F24] font-bold hover:underline bg-white border border-[#D4AF37]/40 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        List View
+                      </button>
+                    )}
+                  </div>
                 </label>
-                <select
-                  name="city"
-                  value={formData.city}
-                  onChange={handleCityChange}
-                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium"
-                >
-                  <option value="">Select City</option>
-                  {activeCities.map(c => (
-                    <option key={c._id} value={c.name}>
-                      {c.name} {c.state ? `(${c.state})` : ''}
+
+                {isCustomCity ? (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleTextChange}
+                      placeholder="Enter City Name (e.g. Pune, Mumbai)"
+                      className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/30 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium"
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <select
+                    name="city"
+                    value={formData.city}
+                    onChange={handleCityChange}
+                    className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium"
+                  >
+                    <option value="">Select City</option>
+                    {activeCities.map(c => (
+                      <option key={c._id || c.name} value={c.name}>
+                        {c.name} {c.state ? `(${c.state})` : ''}
+                      </option>
+                    ))}
+                    <option value="__custom_city__" className="font-semibold text-[#002F24] bg-amber-50">
+                      ➕ + Add Other City (Type Manually)
                     </option>
-                  ))}
-                </select>
+                  </select>
+                )}
               </div>
 
-              {/* Sub-City / Area Dropdown */}
+              {/* Sub-City / Area Dropdown / Custom Input */}
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
                   <span>Sub-City / Area (Locality)</span>
-                  {availableSubCities.length > 0 && (
-                    <span className="text-[8px] text-[#002F24] font-semibold">{availableSubCities.length} areas</span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {!isCustomSubCity && availableSubCities.length > 0 && (
+                      <span className="text-[8px] text-[#002F24] font-semibold">{availableSubCities.length} areas</span>
+                    )}
+                    {formData.city && !isCustomCity && (
+                      !isCustomSubCity ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomSubCity(true)
+                            setFormData(prev => ({ ...prev, subCity: '', pincode: '' }))
+                          }}
+                          className="text-[8px] text-[#002F24] font-bold hover:underline bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                          title="Can't find your area? Type manually"
+                        >
+                          + Add Area
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomSubCity(false)
+                            setFormData(prev => ({ ...prev, subCity: '', pincode: '' }))
+                          }}
+                          className="text-[8px] text-[#002F24] font-bold hover:underline bg-white border border-[#D4AF37]/40 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          List View
+                        </button>
+                      )
+                    )}
+                  </div>
                 </label>
-                <select
-                  name="subCity"
-                  value={formData.subCity}
-                  onChange={handleSubCityChange}
-                  disabled={!formData.city}
-                  className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">
-                    {!formData.city ? 'Select City first' : (availableSubCities.length === 0 ? 'No sub-areas (Enter address)' : 'Select Sub-City / Area')}
-                  </option>
-                  {availableSubCities.map(a => (
-                    <option key={a._id} value={a.name}>
-                      {a.name} {a.pincode ? `- ${a.pincode}` : ''}
+
+                {isCustomSubCity || isCustomCity ? (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="subCity"
+                      value={formData.subCity}
+                      onChange={handleTextChange}
+                      placeholder="Enter Sub-City / Area (e.g. Baner, Wakad)"
+                      className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/30 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium"
+                      autoFocus={isCustomSubCity && !isCustomCity}
+                    />
+                  </div>
+                ) : (
+                  <select
+                    name="subCity"
+                    value={formData.subCity}
+                    onChange={handleSubCityChange}
+                    disabled={!formData.city}
+                    className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {!formData.city ? 'Select City first' : (availableSubCities.length === 0 ? 'No pre-set areas (Select + Add Area)' : 'Select Sub-City / Area')}
                     </option>
-                  ))}
-                </select>
+                    {availableSubCities.map(a => (
+                      <option key={a._id || a.name} value={a.name}>
+                        {a.name} {a.pincode ? `- ${a.pincode}` : ''}
+                      </option>
+                    ))}
+                    {formData.city && (
+                      <option value="__custom_subcity__" className="font-semibold text-[#002F24] bg-amber-50">
+                        ➕ + Add Sub-City / Area (Type Manually)
+                      </option>
+                    )}
+                  </select>
+                )}
               </div>
             </div>
 
-            {/* State & Pincode Row (Auto-filled) */}
+            {/* State & Pincode Row (Auto-filled / Manual) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* State (Auto-filled from City) */}
+              {/* State */}
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
                   <span>State</span>
-                  {formData.city && <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>}
+                  {formData.city && !isCustomCity && <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>}
                 </label>
                 <input
                   type="text"
@@ -329,11 +454,15 @@ export default function Register() {
                 />
               </div>
 
-              {/* Pincode (Auto-filled from Sub-city) */}
+              {/* Pincode */}
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
                   <span>Pincode</span>
-                  {formData.subCity && formData.pincode && <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>}
+                  {formData.subCity && formData.pincode && !isCustomSubCity && !isCustomCity ? (
+                    <span className="text-[8px] text-emerald-700 font-semibold">Auto-filled</span>
+                  ) : (
+                    <span className="text-[8px] text-gray-400 font-normal">Enter 6-digit Pincode</span>
+                  )}
                 </label>
                 <input
                   type="text"

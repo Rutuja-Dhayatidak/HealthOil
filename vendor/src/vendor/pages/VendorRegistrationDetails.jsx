@@ -28,6 +28,10 @@ export default function VendorRegistrationDetails() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('BASIC')
   const [activeCities, setActiveCities] = useState([])
+  const [isCustomBusinessCity, setIsCustomBusinessCity] = useState(false)
+  const [isCustomBusinessSubCity, setIsCustomBusinessSubCity] = useState(false)
+  const [isCustomPickupCity, setIsCustomPickupCity] = useState(false)
+  const [isCustomPickupSubCity, setIsCustomPickupSubCity] = useState(false)
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -82,12 +86,32 @@ export default function VendorRegistrationDetails() {
         getActiveCitiesApi()
       ])
 
-      if (citiesRes.status === 'fulfilled' && citiesRes.value?.success) {
-        setActiveCities(citiesRes.value.cities || [])
-      }
+      const loadedCities = (citiesRes.status === 'fulfilled' && citiesRes.value?.success) ? (citiesRes.value.cities || []) : []
+      setActiveCities(loadedCities)
 
       if (res.status === 'fulfilled' && res.value?.success && res.value?.vendor) {
         const v = res.value.vendor
+        const bizCityName = v.business?.address?.city || ''
+        const bizSubCityName = v.business?.address?.subCity || ''
+        const pickupCityName = v.pickupAddress?.city || ''
+        const pickupSubCityName = v.pickupAddress?.subCity || ''
+
+        const matchedBizCity = loadedCities.find(c => c.name.toLowerCase() === bizCityName.toLowerCase())
+        if (bizCityName && !matchedBizCity) {
+          setIsCustomBusinessCity(true)
+          setIsCustomBusinessSubCity(true)
+        } else if (bizSubCityName && matchedBizCity && !matchedBizCity.areas?.some(a => a.name.toLowerCase() === bizSubCityName.toLowerCase())) {
+          setIsCustomBusinessSubCity(true)
+        }
+
+        const matchedPickupCity = loadedCities.find(c => c.name.toLowerCase() === pickupCityName.toLowerCase())
+        if (pickupCityName && !matchedPickupCity) {
+          setIsCustomPickupCity(true)
+          setIsCustomPickupSubCity(true)
+        } else if (pickupSubCityName && matchedPickupCity && !matchedPickupCity.areas?.some(a => a.name.toLowerCase() === pickupSubCityName.toLowerCase())) {
+          setIsCustomPickupSubCity(true)
+        }
+
         setFormData({
           fullName: v.fullName || '',
           email: v.email || '',
@@ -181,6 +205,8 @@ export default function VendorRegistrationDetails() {
   }
 
   const handleCopyBusinessToPickup = () => {
+    setIsCustomPickupCity(isCustomBusinessCity)
+    setIsCustomPickupSubCity(isCustomBusinessSubCity)
     setFormData(prev => ({
       ...prev,
       pickupAddress: {
@@ -189,6 +215,7 @@ export default function VendorRegistrationDetails() {
         addressLine1: prev.business.address.addressLine1 || '',
         addressLine2: prev.business.address.addressLine2 || '',
         landmark: prev.business.address.landmark || '',
+        subCity: prev.business.address.subCity || '',
         city: prev.business.address.city || '',
         state: prev.business.address.state || '',
         pincode: prev.business.address.pincode || ''
@@ -530,14 +557,81 @@ export default function VendorRegistrationDetails() {
                         />
                       </div>
 
-                      {/* City Dropdown */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">City</label>
+                    {/* City Dropdown / Custom Input */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>City</span>
+                        {!isCustomBusinessCity ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomBusinessCity(true)
+                              setIsCustomBusinessSubCity(true)
+                              setFormData(prev => ({
+                                ...prev,
+                                business: {
+                                  ...prev.business,
+                                  address: { ...prev.business.address, city: '', subCity: '', pincode: '' }
+                                }
+                              }))
+                            }}
+                            className="text-[10px] text-blue-600 font-semibold hover:underline bg-blue-50 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            + Add City
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomBusinessCity(false)
+                              setIsCustomBusinessSubCity(false)
+                              setFormData(prev => ({
+                                ...prev,
+                                business: {
+                                  ...prev.business,
+                                  address: { ...prev.business.address, city: '', subCity: '', pincode: '', state: '' }
+                                }
+                              }))
+                            }}
+                            className="text-[10px] text-slate-600 font-semibold hover:underline bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            List View
+                          </button>
+                        )}
+                      </label>
+                      {isCustomBusinessCity ? (
+                        <input
+                          type="text"
+                          value={formData.business.address.city || ''}
+                          onChange={(e) => handleBusinessAddressChange('city', e.target.value)}
+                          placeholder="Enter City name"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
+                          autoFocus
+                        />
+                      ) : (
                         <select
                           value={formData.business.address.city || ''}
                           onChange={(e) => {
                             const cityName = e.target.value
+                            if (cityName === '__custom_city__') {
+                              setIsCustomBusinessCity(true)
+                              setIsCustomBusinessSubCity(true)
+                              setFormData(prev => ({
+                                ...prev,
+                                business: {
+                                  ...prev.business,
+                                  address: {
+                                    ...prev.business.address,
+                                    city: '',
+                                    subCity: '',
+                                    pincode: ''
+                                  }
+                                }
+                              }))
+                              return
+                            }
                             const cityObj = activeCities.find(c => c.name.toLowerCase() === cityName.toLowerCase())
+                            setIsCustomBusinessSubCity(false)
                             setFormData(prev => ({
                               ...prev,
                               business: {
@@ -558,76 +652,154 @@ export default function VendorRegistrationDetails() {
                           {activeCities.map(c => (
                             <option key={c._id} value={c.name}>{c.name} {c.state ? `(${c.state})` : ''}</option>
                           ))}
+                          <option value="__custom_city__" className="font-semibold text-blue-600 bg-blue-50">
+                            ➕ + Add Other City (Type Manually)
+                          </option>
                         </select>
-                      </div>
+                      )}
+                    </div>
 
-                      {/* Sub-City Dropdown */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Sub-City / Area</label>
-                        {(() => {
-                          const currentCity = activeCities.find(c => c.name.toLowerCase() === (formData.business.address.city || '').toLowerCase())
-                          const areas = currentCity?.areas || []
-                          return (
-                            <select
-                              value={formData.business.address.subCity || ''}
-                              onChange={(e) => {
-                                const areaName = e.target.value
-                                const areaObj = areas.find(a => a.name.toLowerCase() === areaName.toLowerCase())
-                                setFormData(prev => ({
-                                  ...prev,
-                                  business: {
-                                    ...prev.business,
-                                    address: {
-                                      ...prev.business.address,
-                                      subCity: areaName,
-                                      pincode: areaObj?.pincode || prev.business.address.pincode
-                                    }
+                    {/* Sub-City Dropdown / Custom Input */}
+                    <div>
+                      {(() => {
+                        const currentCity = activeCities.find(c => c.name.toLowerCase() === (formData.business.address.city || '').toLowerCase())
+                        const areas = currentCity?.areas || []
+                        return (
+                          <>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                              <span>Sub-City / Area</span>
+                              {formData.business.address.city && !isCustomBusinessCity && (
+                                !isCustomBusinessSubCity ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsCustomBusinessSubCity(true)
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        business: {
+                                          ...prev.business,
+                                          address: { ...prev.business.address, subCity: '', pincode: '' }
+                                        }
+                                      }))
+                                    }}
+                                    className="text-[10px] text-blue-600 font-semibold hover:underline bg-blue-50 px-1.5 py-0.5 rounded cursor-pointer"
+                                  >
+                                    + Add Area
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsCustomBusinessSubCity(false)
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        business: {
+                                          ...prev.business,
+                                          address: { ...prev.business.address, subCity: '', pincode: '' }
+                                        }
+                                      }))
+                                    }}
+                                    className="text-[10px] text-slate-600 font-semibold hover:underline bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer"
+                                  >
+                                    List View
+                                  </button>
+                                )
+                              )}
+                            </label>
+                            {isCustomBusinessSubCity || isCustomBusinessCity ? (
+                              <input
+                                type="text"
+                                value={formData.business.address.subCity || ''}
+                                onChange={(e) => handleBusinessAddressChange('subCity', e.target.value)}
+                                placeholder="Enter Sub-City / Area name"
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
+                                autoFocus={isCustomBusinessSubCity && !isCustomBusinessCity}
+                              />
+                            ) : (
+                              <select
+                                value={formData.business.address.subCity || ''}
+                                onChange={(e) => {
+                                  const areaName = e.target.value
+                                  if (areaName === '__custom_subcity__') {
+                                    setIsCustomBusinessSubCity(true)
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      business: {
+                                        ...prev.business,
+                                        address: {
+                                          ...prev.business.address,
+                                          subCity: '',
+                                          pincode: ''
+                                        }
+                                      }
+                                    }))
+                                    return
                                   }
-                                }))
-                              }}
-                              disabled={!formData.business.address.city}
-                              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
-                            >
-                              <option value="">
-                                {!formData.business.address.city ? 'Select City first' : (areas.length === 0 ? 'No sub-areas configured' : 'Select Sub-City / Area')}
-                              </option>
-                              {areas.map(a => (
-                                <option key={a._id} value={a.name}>{a.name} {a.pincode ? `- ${a.pincode}` : ''}</option>
-                              ))}
-                            </select>
-                          )
-                        })()}
-                      </div>
+                                  const areaObj = areas.find(a => a.name.toLowerCase() === areaName.toLowerCase())
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    business: {
+                                      ...prev.business,
+                                      address: {
+                                        ...prev.business.address,
+                                        subCity: areaName,
+                                        pincode: areaObj?.pincode || prev.business.address.pincode
+                                      }
+                                    }
+                                  }))
+                                }}
+                                disabled={!formData.business.address.city}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                              >
+                                <option value="">
+                                  {!formData.business.address.city ? 'Select City first' : (areas.length === 0 ? 'No pre-set areas (Select + Add Area)' : 'Select Sub-City / Area')}
+                                </option>
+                                {areas.map(a => (
+                                  <option key={a._id || a.name} value={a.name}>{a.name} {a.pincode ? `- ${a.pincode}` : ''}</option>
+                                ))}
+                                {formData.business.address.city && (
+                                  <option value="__custom_subcity__" className="font-semibold text-blue-600 bg-blue-50">
+                                    ➕ + Add Sub-City / Area (Type Manually)
+                                  </option>
+                                )}
+                              </select>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </div>
 
-                      {/* State */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
-                          <span>State</span>
-                          {formData.business.address.city && <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>}
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.business.address.state}
-                          onChange={(e) => handleBusinessAddressChange('state', e.target.value)}
-                          placeholder="e.g. Maharashtra"
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500"
-                        />
-                      </div>
+                    {/* State */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>State</span>
+                        {formData.business.address.city && !isCustomBusinessCity && <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.business.address.state}
+                        onChange={(e) => handleBusinessAddressChange('state', e.target.value)}
+                        placeholder="e.g. Maharashtra"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500"
+                      />
+                    </div>
 
-                      {/* Pincode */}
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
-                          <span>Pincode</span>
-                          {formData.business.address.subCity && formData.business.address.pincode && <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>}
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.business.address.pincode}
-                          onChange={(e) => handleBusinessAddressChange('pincode', e.target.value)}
-                          placeholder="411001"
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500"
-                        />
-                      </div>
+                    {/* Pincode */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>Pincode</span>
+                        {formData.business.address.subCity && formData.business.address.pincode && !isCustomBusinessSubCity && !isCustomBusinessCity && (
+                          <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.business.address.pincode}
+                        onChange={(e) => handleBusinessAddressChange('pincode', e.target.value)}
+                        placeholder="411001"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500"
+                      />
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -790,65 +962,190 @@ export default function VendorRegistrationDetails() {
                       />
                     </div>
 
-                    {/* City Dropdown */}
+                    {/* City Dropdown / Custom Input */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">City</label>
-                      <select
-                        value={formData.pickupAddress.city || ''}
-                        onChange={(e) => {
-                          const cityName = e.target.value
-                          const cityObj = activeCities.find(c => c.name.toLowerCase() === cityName.toLowerCase())
-                          setFormData(prev => ({
-                            ...prev,
-                            pickupAddress: {
-                              ...prev.pickupAddress,
-                              city: cityName,
-                              state: cityObj ? (cityObj.state || prev.pickupAddress.state) : prev.pickupAddress.state,
-                              subCity: '',
-                              pincode: ''
-                            }
-                          }))
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
-                      >
-                        <option value="">Select City</option>
-                        {activeCities.map(c => (
-                          <option key={c._id} value={c.name}>{c.name} {c.state ? `(${c.state})` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Sub-City Dropdown */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Sub-City / Area</label>
-                      {(() => {
-                        const currentCity = activeCities.find(c => c.name.toLowerCase() === (formData.pickupAddress.city || '').toLowerCase())
-                        const areas = currentCity?.areas || []
-                        return (
-                          <select
-                            value={formData.pickupAddress.subCity || ''}
-                            onChange={(e) => {
-                              const areaName = e.target.value
-                              const areaObj = areas.find(a => a.name.toLowerCase() === areaName.toLowerCase())
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>City</span>
+                        {!isCustomPickupCity ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomPickupCity(true)
+                              setIsCustomPickupSubCity(true)
+                              setFormData(prev => ({
+                                ...prev,
+                                pickupAddress: { ...prev.pickupAddress, city: '', subCity: '', pincode: '' }
+                              }))
+                            }}
+                            className="text-[10px] text-blue-600 font-semibold hover:underline bg-blue-50 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            + Add City
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomPickupCity(false)
+                              setIsCustomPickupSubCity(false)
+                              setFormData(prev => ({
+                                ...prev,
+                                pickupAddress: { ...prev.pickupAddress, city: '', subCity: '', pincode: '', state: '' }
+                              }))
+                            }}
+                            className="text-[10px] text-slate-600 font-semibold hover:underline bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            List View
+                          </button>
+                        )}
+                      </label>
+                      {isCustomPickupCity ? (
+                        <input
+                          type="text"
+                          value={formData.pickupAddress.city || ''}
+                          onChange={(e) => handlePickupChange('city', e.target.value)}
+                          placeholder="Enter City name"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
+                          autoFocus
+                        />
+                      ) : (
+                        <select
+                          value={formData.pickupAddress.city || ''}
+                          onChange={(e) => {
+                            const cityName = e.target.value
+                            if (cityName === '__custom_city__') {
+                              setIsCustomPickupCity(true)
+                              setIsCustomPickupSubCity(true)
                               setFormData(prev => ({
                                 ...prev,
                                 pickupAddress: {
                                   ...prev.pickupAddress,
-                                  subCity: areaName,
-                                  pincode: areaObj?.pincode || prev.pickupAddress.pincode
+                                  city: '',
+                                  subCity: '',
+                                  pincode: ''
                                 }
                               }))
-                            }}
-                            disabled={!formData.pickupAddress.city}
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
-                          >
-                            <option value="">
-                              {!formData.pickupAddress.city ? 'Select City first' : (areas.length === 0 ? 'No sub-areas configured' : 'Select Sub-City / Area')}
-                            </option>
-                            {areas.map(a => (
-                              <option key={a._id} value={a.name}>{a.name} {a.pincode ? `- ${a.pincode}` : ''}</option>
-                            ))}
-                          </select>
+                              return
+                            }
+                            const cityObj = activeCities.find(c => c.name.toLowerCase() === cityName.toLowerCase())
+                            setIsCustomPickupSubCity(false)
+                            setFormData(prev => ({
+                              ...prev,
+                              pickupAddress: {
+                                ...prev.pickupAddress,
+                                city: cityName,
+                                state: cityObj ? (cityObj.state || prev.pickupAddress.state) : prev.pickupAddress.state,
+                                subCity: '',
+                                pincode: ''
+                              }
+                            }))
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
+                        >
+                          <option value="">Select City</option>
+                          {activeCities.map(c => (
+                            <option key={c._id} value={c.name}>{c.name} {c.state ? `(${c.state})` : ''}</option>
+                          ))}
+                          <option value="__custom_city__" className="font-semibold text-blue-600 bg-blue-50">
+                            ➕ + Add Other City (Type Manually)
+                          </option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Sub-City Dropdown / Custom Input */}
+                    <div>
+                      {(() => {
+                        const currentCity = activeCities.find(c => c.name.toLowerCase() === (formData.pickupAddress.city || '').toLowerCase())
+                        const areas = currentCity?.areas || []
+                        return (
+                          <>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                              <span>Sub-City / Area</span>
+                              {formData.pickupAddress.city && !isCustomPickupCity && (
+                                !isCustomPickupSubCity ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsCustomPickupSubCity(true)
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        pickupAddress: { ...prev.pickupAddress, subCity: '', pincode: '' }
+                                      }))
+                                    }}
+                                    className="text-[10px] text-blue-600 font-semibold hover:underline bg-blue-50 px-1.5 py-0.5 rounded cursor-pointer"
+                                  >
+                                    + Add Area
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsCustomPickupSubCity(false)
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        pickupAddress: { ...prev.pickupAddress, subCity: '', pincode: '' }
+                                      }))
+                                    }}
+                                    className="text-[10px] text-slate-600 font-semibold hover:underline bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer"
+                                  >
+                                    List View
+                                  </button>
+                                )
+                              )}
+                            </label>
+                            {isCustomPickupSubCity || isCustomPickupCity ? (
+                              <input
+                                type="text"
+                                value={formData.pickupAddress.subCity || ''}
+                                onChange={(e) => handlePickupChange('subCity', e.target.value)}
+                                placeholder="Enter Sub-City / Area name"
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium"
+                                autoFocus={isCustomPickupSubCity && !isCustomPickupCity}
+                              />
+                            ) : (
+                              <select
+                                value={formData.pickupAddress.subCity || ''}
+                                onChange={(e) => {
+                                  const areaName = e.target.value
+                                  if (areaName === '__custom_subcity__') {
+                                    setIsCustomPickupSubCity(true)
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      pickupAddress: {
+                                        ...prev.pickupAddress,
+                                        subCity: '',
+                                        pincode: ''
+                                      }
+                                    }))
+                                    return
+                                  }
+                                  const areaObj = areas.find(a => a.name.toLowerCase() === areaName.toLowerCase())
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pickupAddress: {
+                                      ...prev.pickupAddress,
+                                      subCity: areaName,
+                                      pincode: areaObj?.pincode || prev.pickupAddress.pincode
+                                    }
+                                  }))
+                                }}
+                                disabled={!formData.pickupAddress.city}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 font-medium disabled:opacity-50"
+                              >
+                                <option value="">
+                                  {!formData.pickupAddress.city ? 'Select City first' : (areas.length === 0 ? 'No pre-set areas (Select + Add Area)' : 'Select Sub-City / Area')}
+                                </option>
+                                {areas.map(a => (
+                                  <option key={a._id || a.name} value={a.name}>{a.name} {a.pincode ? `- ${a.pincode}` : ''}</option>
+                                ))}
+                                {formData.pickupAddress.city && (
+                                  <option value="__custom_subcity__" className="font-semibold text-blue-600 bg-blue-50">
+                                    ➕ + Add Sub-City / Area (Type Manually)
+                                  </option>
+                                )}
+                              </select>
+                            )}
+                          </>
                         )
                       })()}
                     </div>
@@ -857,7 +1154,7 @@ export default function VendorRegistrationDetails() {
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
                         <span>State</span>
-                        {formData.pickupAddress.city && <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>}
+                        {formData.pickupAddress.city && !isCustomPickupCity && <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>}
                       </label>
                       <input
                         type="text"
@@ -870,7 +1167,12 @@ export default function VendorRegistrationDetails() {
 
                     {/* Pincode */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pincode</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>Pincode</span>
+                        {formData.pickupAddress.subCity && formData.pickupAddress.pincode && !isCustomPickupSubCity && !isCustomPickupCity && (
+                          <span className="text-[10px] text-emerald-600 font-medium">Auto-filled</span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.pickupAddress.pincode}
