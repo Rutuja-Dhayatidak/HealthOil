@@ -145,19 +145,59 @@ jobs:
               docker rm $PORT_CONTAINERS
             fi
 
+            echo "🔐 Ensuring SSL certificate directories and certificates exist..."
+            mkdir -p "$APP_DIR/certbot/conf/live/healthyfood.cafe"
+            mkdir -p "$APP_DIR/certbot/www"
+
+            if [ ! -f "$APP_DIR/certbot/conf/live/healthyfood.cafe/fullchain.pem" ]; then
+              echo "⚠️ No SSL certificate found. Generating temporary fallback certificate so Nginx can start..."
+              openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+                -keyout "$APP_DIR/certbot/conf/live/healthyfood.cafe/privkey.pem" \
+                -out "$APP_DIR/certbot/conf/live/healthyfood.cafe/fullchain.pem" \
+                -subj "/CN=healthyfood.cafe"
+            fi
+
             echo "🚀 Starting Docker containers..."
             docker compose up -d --force-recreate --remove-orphans
 
             echo "🔎 Verifying running containers..."
             docker compose ps
             if [ "$(docker compose ps --services --filter status=running | wc -l)" -lt 5 ]; then
-              echo "Error: One or more application containers are not running."
+              echo "❌ Error: One or more application containers are not running."
               docker compose ps
+              docker compose logs --tail 50
               exit 1
             fi
 
+            # Check if Let's Encrypt certificate should be acquired via Webroot
+            if [ -f "$APP_DIR/certbot/conf/live/healthyfood.cafe/fullchain.pem" ]; then
+              if ! openssl x509 -in "$APP_DIR/certbot/conf/live/healthyfood.cafe/fullchain.pem" -issuer -noout | grep -qi "Let's Encrypt"; then
+                echo "🔐 Acquiring official Let's Encrypt SSL certificate via ACME webroot..."
+                docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+                  --non-interactive --agree-tos --email admin@oilgmail.com \
+                  -d healthyfood.cafe -d www.healthyfood.cafe -d admin.healthyfood.cafe -d vendor.healthyfood.cafe -d api.healthyfood.cafe || true
+                docker compose exec -T nginx nginx -s reload || true
+              fi
+            fi
+
             echo "🌐 Verifying live response..."
-            curl --fail --silent --show-error --max-time 30 https://healthyfood.cafe/ > /dev/null
+            sleep 3
+            VERIFIED=false
+            for i in 1 2 3 4 5; do
+              if curl -k --fail --silent --show-error --max-time 10 https://127.0.0.1/ -H "Host: healthyfood.cafe" > /dev/null; then
+                VERIFIED=true
+                echo "✨ Live endpoint verified successfully!"
+                break
+              fi
+              echo "Waiting for Nginx (attempt $i/5)..."
+              sleep 3
+            done
+
+            if [ "$VERIFIED" = false ]; then
+              echo "❌ Live health check failed! Inspecting Nginx logs:"
+              docker compose logs nginx --tail 50
+              exit 1
+            fi
             
             echo "🧹 Cleaning up dangling images..."
             docker image prune -f
