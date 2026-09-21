@@ -33,6 +33,10 @@ const reviewSchema = new mongoose.Schema({
   isFeatured: {
     type: Boolean,
     default: false
+  },
+  vendorReply: {
+    message: String,
+    repliedAt: Date
   }
 }, { timestamps: true });
 

@@ -40,6 +40,7 @@ const vendorSchema = new mongoose.Schema({
       addressLine1: String,
       addressLine2: String,
       landmark: String,
+      subCity: String,
       city: String,
       state: String,
       pincode: String
@@ -66,6 +67,7 @@ const vendorSchema = new mongoose.Schema({
     addressLine1: String,
     addressLine2: String,
     landmark: String,
+    subCity: String,
     city: String,
     state: String,
     pincode: String

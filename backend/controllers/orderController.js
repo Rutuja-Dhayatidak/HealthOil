@@ -61,56 +61,107 @@ exports.verifyPaymentAndCreateOrders = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid payment signature' });
     }
 
-    // Payment is verified. Now create orders per vendor.
-    
-    let finalDeliveryAddress = deliveryAddress;
-    if (typeof deliveryAddress === 'string') {
-      const latMatch = deliveryAddress.match(/Lat:\s*([0-9.-]+)/);
-      const lngMatch = deliveryAddress.match(/Lng:\s*([0-9.-]+)/);
-      finalDeliveryAddress = {
-        name: req.user.name || 'Mobile User',
-        phone: req.user.phone || 'N/A',
-        addressText: deliveryAddress,
-        lat: latMatch ? parseFloat(latMatch[1]) : undefined,
-        lng: lngMatch ? parseFloat(lngMatch[1]) : undefined,
-      };
-    } else if (!deliveryAddress || Object.keys(deliveryAddress).length === 0) {
-      // Fallback if mobile app doesn't send deliveryAddress or sends it empty
-      finalDeliveryAddress = {
-        name: req.user.name || 'Mobile User',
-        phone: req.user.phone || 'N/A',
-        addressText: 'Location provided via App',
-        lat: 18.6298, // default Pune lat
-        lng: 73.7997  // default Pune lng
-      };
-    } else if (typeof deliveryAddress === 'object') {
-      finalDeliveryAddress = {
-        name: deliveryAddress.name || req.user.name || 'Mobile User',
-        phone: deliveryAddress.phone || req.user.phone || 'N/A',
-        addressText: deliveryAddress.addressText || 'Location provided via App',
-        lat: deliveryAddress.lat,
-        lng: deliveryAddress.lng
-      };
+    console.log('[verifyPaymentAndCreateOrders] Incoming req.body:', JSON.stringify(req.body, null, 2));
+
+    const incomingAddress = req.body.deliveryAddress 
+      || req.body.shippingAddress 
+      || req.body.selectedAddress
+      || req.body.address 
+      || req.body.addressInfo
+      || req.body.userAddress 
+      || req.body.delivery_address 
+      || req.body.shipping_address
+      || req.body.location
+      || req.body.delivery;
+
+    let customerName = req.user?.name || 'Customer';
+    let customerPhone = req.user?.phone || 'N/A';
+    let addressText = '';
+    let lat = req.body.lat || req.body.latitude || undefined;
+    let lng = req.body.lng || req.body.longitude || undefined;
+
+    if (typeof incomingAddress === 'string' && incomingAddress.trim()) {
+      addressText = incomingAddress.trim();
+      const latMatch = addressText.match(/Lat:\s*([0-9.-]+)/i);
+      const lngMatch = addressText.match(/Lng:\s*([0-9.-]+)/i);
+      if (latMatch) lat = parseFloat(latMatch[1]);
+      if (lngMatch) lng = parseFloat(lngMatch[1]);
+    } else if (incomingAddress && typeof incomingAddress === 'object') {
+      customerName = incomingAddress.name || incomingAddress.fullName || customerName;
+      customerPhone = incomingAddress.phone || incomingAddress.mobile || incomingAddress.contact || customerPhone;
+      lat = incomingAddress.lat || incomingAddress.latitude || lat;
+      lng = incomingAddress.lng || incomingAddress.longitude || lng;
+
+      addressText = incomingAddress.addressText 
+        || incomingAddress.address 
+        || incomingAddress.formattedAddress 
+        || incomingAddress.fullAddress
+        || [
+            incomingAddress.line1, 
+            incomingAddress.line2, 
+            incomingAddress.street,
+            incomingAddress.landmark, 
+            incomingAddress.area, 
+            incomingAddress.city, 
+            incomingAddress.state, 
+            incomingAddress.pincode || incomingAddress.postalCode
+           ].filter(Boolean).join(', ');
     }
 
-    // Fetch a default vendor ID just in case an item is missing one (Assign to newest vendor)
-    const defaultVendor = await Vendor.findOne().sort({ createdAt: -1 });
+    if (!addressText && (lat || lng)) {
+      addressText = `GPS: ${lat}, ${lng}`;
+    }
+
+    const finalDeliveryAddress = {
+      name: customerName,
+      phone: customerPhone,
+      addressText: addressText || 'Address provided via App',
+      lat: lat ? Number(lat) : undefined,
+      lng: lng ? Number(lng) : undefined
+    };
+
+    // Fetch a default vendor ID just in case an item is missing one
+    const defaultVendor = await Vendor.findOne({ onboardingStatus: 'APPROVED' }) || await Vendor.findOne();
     const fallbackVendorId = defaultVendor ? defaultVendor._id : null;
+
+    const VendorProduct = require('../models/VendorProduct');
 
     // Group cart items by vendorId
     const vendorGroups = {};
-    cartItems.forEach(item => {
-      // In cartItems, we should have vendorId from when it was added
-      const vId = item.vendorId || item.vendor || fallbackVendorId; 
+    for (const item of (cartItems || [])) {
+      let vId = null;
       
+      // 1. Primary source of truth: Look up product in VendorProduct collection
+      const prodId = item.productId || item.id || item._id;
+      if (prodId) {
+        try {
+          const productDoc = await VendorProduct.findById(prodId);
+          if (productDoc && productDoc.vendor) {
+            vId = productDoc.vendor.toString();
+          }
+        } catch (e) {
+          console.error('Error looking up product vendor:', e);
+        }
+      }
+
+      // 2. Secondary fallback: vendorId from item
       if (!vId) {
-        console.warn('Skipping item with no vendor ID:', item.name);
-        return; // skip if really no vendor exists
+        vId = item.vendorId || item.vendor;
+      }
+
+      // 3. Tertiary fallback: default approved vendor
+      if (!vId && fallbackVendorId) {
+        vId = fallbackVendorId.toString();
+      }
+
+      if (!vId) {
+        console.warn('Skipping item with no vendor ID:', item.name || item.productName);
+        continue;
       }
 
       if (!vendorGroups[vId]) vendorGroups[vId] = [];
-      vendorGroups[vId].push(item);
-    });
+      vendorGroups[vId].push({ ...item, vendorId: vId });
+    }
 
     const createdOrders = [];
 

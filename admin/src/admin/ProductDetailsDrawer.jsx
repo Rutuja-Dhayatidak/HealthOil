@@ -92,6 +92,11 @@ export default function ProductDetailsDrawer({ isOpen, onClose, product }) {
                   <span className="text-xs font-semibold text-[#b89547]">
                     {product.vendor?.business?.storeName || product.vendor?.fullName}
                   </span>
+                  {(product.approvedAt || product.updatedAt) && product.status === 'ACTIVE' && (
+                    <span className="text-[10px] text-gray-400">
+                      • Approved: {new Date(product.approvedAt || product.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

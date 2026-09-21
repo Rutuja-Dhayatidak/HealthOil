@@ -1,8 +1,32 @@
 import { useState, useEffect } from 'react'
-import { Package, Search, CheckCircle, XCircle } from 'lucide-react'
+import { Package, Search, CheckCircle, XCircle, Mail } from 'lucide-react'
 import { getAllProducts, approveProduct, rejectProduct } from '../ApiServices/adminService'
 import toast from 'react-hot-toast'
 import ProductDetailsDrawer from './ProductDetailsDrawer'
+
+// Helper to safely get product image URL
+const getProductImageUrl = (product) => {
+  if (!product) return null
+  const img = product.images?.mainImage || 
+              product.images?.gallery?.[0] || 
+              product.bannerImage || 
+              product.image
+  if (!img) return null
+  
+  let rawUrl = ''
+  if (typeof img === 'string') {
+    rawUrl = img
+  } else if (typeof img === 'object') {
+    rawUrl = img.url || img.fileLocation || img.secure_url || img.path || ''
+  }
+
+  if (!rawUrl) return null
+  if (rawUrl.startsWith('http') || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) {
+    return rawUrl
+  }
+  const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
+  return `http://localhost:5000${cleanPath}`
+}
 
 function ProductApproval({ refreshStats }) {
   const [productsList, setProductsList] = useState([])
@@ -92,6 +116,7 @@ function ProductApproval({ refreshStats }) {
                 <tr className="border-b border-gray-100 text-gray-400 font-bold">
                   <th className="pb-3">Product Name</th>
                   <th className="pb-3">Vendor</th>
+                  <th className="pb-3">Email</th>
                   <th className="pb-3">Category</th>
                   <th className="pb-3">Stock Info</th>
                   <th className="pb-3">Status</th>
@@ -101,7 +126,7 @@ function ProductApproval({ refreshStats }) {
               <tbody className="divide-y divide-gray-100">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-10 text-center text-gray-500">
+                    <td colSpan="7" className="py-10 text-center text-gray-500">
                       <div className="flex flex-col items-center justify-center">
                         <CheckCircle className="w-10 h-10 text-emerald-400 mb-2 opacity-50" />
                         <p>No products waiting for approval. You're all caught up!</p>
@@ -122,18 +147,43 @@ function ProductApproval({ refreshStats }) {
                           setIsDrawerOpen(true)
                         }}
                       >
-                        <td className="py-3.5 font-bold text-[#031d13] flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-yellow-100 border border-yellow-200 flex items-center justify-center text-yellow-700 shrink-0">
-                            <Package className="w-3.5 h-3.5" />
+                        <td className="py-3.5 font-bold text-[#031d13] flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-[#FAF4E8] border border-[#b89547]/30 flex items-center justify-center text-[#031d13] shrink-0 overflow-hidden shadow-2xs">
+                            {getProductImageUrl(product) ? (
+                              <img 
+                                src={getProductImageUrl(product)} 
+                                alt={product.basicDetails?.name || 'Product'} 
+                                className="w-full h-full object-cover rounded-xl"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  e.currentTarget.parentElement.querySelector('.fallback-icon')?.classList.remove('hidden')
+                                }}
+                              />
+                            ) : null}
+                            <div className={`fallback-icon ${getProductImageUrl(product) ? 'hidden' : 'flex'} items-center justify-center`}>
+                              <Package className="w-5 h-5 text-[#b89547]" />
+                            </div>
                           </div>
                           <div>
-                            <div>{product.basicDetails?.name}</div>
-                            <div className="text-[9px] text-gray-400 font-normal">{product.variants?.[0]?.price ? `₹${product.variants[0].price} starting` : ''}</div>
+                            <div className="text-xs font-bold text-[#031d13]">{product.basicDetails?.name}</div>
+                            <div className="text-[10px] text-gray-500 font-normal">{product.variants?.[0]?.price ? `₹${product.variants[0].price} starting` : ''}</div>
                           </div>
                         </td>
                         <td className="py-3.5">
-                          <span className="font-semibold text-[#031d13]">{product.vendor?.business?.storeName || product.vendor?.fullName || 'Unknown'}</span>
-                          <div className="text-[9px] text-gray-400">{product.vendor?.email}</div>
+                          <span className="font-semibold text-[#031d13] block">{product.vendor?.business?.storeName || product.vendor?.fullName || 'Unknown'}</span>
+                          {product.vendor?.business?.storeName && product.vendor?.fullName && (
+                            <span className="text-[10px] text-gray-400 font-medium block">{product.vendor.fullName}</span>
+                          )}
+                        </td>
+                        <td className="py-3.5">
+                          {product.vendor?.email ? (
+                            <div className="flex items-center gap-1.5 text-gray-700 font-medium">
+                              <Mail className="w-3.5 h-3.5 text-yellow-600 shrink-0" />
+                              <span className="text-[11px] truncate max-w-[200px]" title={product.vendor.email}>{product.vendor.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-gray-400">N/A</span>
+                          )}
                         </td>
                         <td className="py-3.5 text-gray-500">{product.compliance?.oilType || 'Other'}</td>
                         <td className="py-3.5">

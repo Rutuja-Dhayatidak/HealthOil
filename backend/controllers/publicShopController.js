@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Vendor = require('../models/Vendor');
 const VendorProduct = require('../models/VendorProduct');
+const Review = require('../models/Review');
 
 // Get all active/approved vendor shops for public display
 exports.getPublicShops = async (req, res) => {
@@ -116,6 +117,8 @@ exports.getPublicShopDetails = async (req, res) => {
 
       return {
         id: p._id.toString(),
+        vendorId: p.vendor ? p.vendor.toString() : id,
+        vendor: p.vendor ? p.vendor.toString() : id,
         name: p.basicDetails?.name || '',
         brandName: p.basicDetails?.brandName || '',
         size: `${variant.size || ''} ${variant.unit || ''}`.trim(),
@@ -142,7 +145,12 @@ exports.getPublicShopDetails = async (req, res) => {
       };
     });
 
-    res.json({ success: true, shop, products });
+    // Fetch reviews
+    const reviews = await Review.find({ vendor: id, isFeatured: true })
+      .populate('user', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, shop, products, reviews });
   } catch (error) {
     console.error('Error fetching public shop details:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -160,6 +168,8 @@ exports.getPublicProducts = async (req, res) => {
 
       return {
         id: p._id.toString(),
+        vendorId: p.vendor ? p.vendor.toString() : undefined,
+        vendor: p.vendor ? p.vendor.toString() : undefined,
         name: p.basicDetails?.name || '',
         brandName: p.basicDetails?.brandName || 'HealthOil',
         size: `${variant.size || ''} ${variant.unit || ''}`.trim(),

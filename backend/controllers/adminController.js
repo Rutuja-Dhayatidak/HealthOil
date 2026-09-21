@@ -20,10 +20,21 @@ const getAdminStats = async (req, res) => {
     const totalOrders = orders.length;
     const totalSales = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-    const recentOrdersData = await Order.find({})
-      .populate('user', 'name email')
+    const recentOrdersRaw = await Order.find({})
+      .populate('vendor', 'business.storeName fullName')
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(5)
+      .lean();
+
+    for (let order of recentOrdersRaw) {
+      if (order.user) {
+        let userDoc = await WebsiteUser.findById(order.user).select('name phone email').lean();
+        if (!userDoc) {
+          userDoc = await MobileUser.findById(order.user).select('name phone email').lean();
+        }
+        order.user = userDoc || null;
+      }
+    }
 
     res.json({
       success: true,
@@ -35,7 +46,7 @@ const getAdminStats = async (req, res) => {
         productApproval: pendingProducts,
         orders: totalOrders,
         sales: totalSales,
-        recentOrders: recentOrdersData,
+        recentOrders: recentOrdersRaw,
         returns: 0
       }
     });
@@ -215,10 +226,82 @@ const rejectVendor = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await VendorProduct.find({})
+    const { page, limit = 15, search, status } = req.query;
+
+    const query = {};
+    if (status && status !== 'ALL') {
+      query.status = status;
+    }
+
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: 'i' };
+      
+      // Also match vendor store name, full name, email
+      const matchingVendors = await Vendor.find({
+        $or: [
+          { 'business.storeName': searchRegex },
+          { fullName: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select('_id');
+      const vendorIds = matchingVendors.map(v => v._id);
+
+      query.$or = [
+        { 'basicDetails.name': searchRegex },
+        { 'basicDetails.brandName': searchRegex },
+        { 'compliance.oilType': searchRegex },
+        { vendor: { $in: vendorIds } }
+      ];
+    }
+
+    if (page !== undefined && page !== null && page !== '') {
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.max(1, parseInt(limit) || 15);
+      const skip = (pageNum - 1) * limitNum;
+
+      const [products, totalCount] = await Promise.all([
+        VendorProduct.find(query)
+          .populate('vendor', 'business.storeName fullName email')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum),
+        VendorProduct.countDocuments(query)
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limitNum) || 1;
+
+      return res.json({
+        success: true,
+        products,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalProducts: totalCount,
+          limit: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      });
+    }
+
+    const products = await VendorProduct.find(query)
       .populate('vendor', 'business.storeName fullName email')
       .sort({ createdAt: -1 });
-    res.json({ success: true, products });
+
+    const totalCount = products.length;
+
+    res.json({
+      success: true,
+      products,
+      pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalProducts: totalCount,
+        limit: totalCount,
+        hasNextPage: false,
+        hasPrevPage: false
+      }
+    });
   } catch (error) {
     console.error('Admin get products error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -232,6 +315,7 @@ const approveProduct = async (req, res) => {
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     product.status = 'ACTIVE';
+    product.approvedAt = new Date();
     await product.save();
     
     res.json({ success: true, message: 'Product approved successfully', product });
@@ -248,6 +332,7 @@ const rejectProduct = async (req, res) => {
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
     
     product.status = 'REJECTED';
+    product.rejectedAt = new Date();
     await product.save();
     
     res.json({ success: true, message: 'Product rejected successfully', product });
@@ -257,14 +342,176 @@ const rejectProduct = async (req, res) => {
   }
 };
 
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await VendorProduct.findByIdAndDelete(id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    
+    res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Admin delete product error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { basicDetails, compliance, nutrition, variants, status, approvedAt } = req.body;
+    
+    const product = await VendorProduct.findById(id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    // Update basicDetails (merge, don't replace)
+    if (basicDetails) {
+      if (basicDetails.name !== undefined) product.basicDetails.name = basicDetails.name;
+      if (basicDetails.brandName !== undefined) product.basicDetails.brandName = basicDetails.brandName;
+      if (basicDetails.description !== undefined) product.basicDetails.description = basicDetails.description;
+      if (basicDetails.highlights !== undefined) product.basicDetails.highlights = basicDetails.highlights;
+    }
+
+    // Update compliance
+    if (compliance) {
+      Object.keys(compliance).forEach(key => {
+        if (compliance[key] !== undefined) {
+          product.compliance[key] = compliance[key];
+        }
+      });
+    }
+
+    // Update nutrition
+    if (nutrition) {
+      Object.keys(nutrition).forEach(key => {
+        if (nutrition[key] !== undefined) {
+          product.nutrition[key] = nutrition[key];
+        }
+      });
+    }
+
+    // Update variants (full replace)
+    if (variants !== undefined) {
+      product.variants = variants;
+    }
+
+    // Update status
+    if (status !== undefined) {
+      product.status = status;
+    }
+
+    // Update approval timestamp
+    if (approvedAt !== undefined) {
+      product.approvedAt = approvedAt;
+    }
+
+    // Handle dot-notation fields for backward compatibility
+    const dotFields = ['basicDetails.name', 'basicDetails.brandName', 'basicDetails.description', 'compliance.oilType'];
+    dotFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        const [parent, child] = field.split('.');
+        product[parent][child] = req.body[field];
+      }
+    });
+
+    await product.save();
+    
+    res.json({ success: true, message: 'Product updated successfully', product });
+  } catch (error) {
+    console.error('Admin update product error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const updateVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const vendor = await Vendor.findById(id);
+    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+
+    // Update personal info
+    if (updateData.fullName !== undefined) vendor.fullName = updateData.fullName;
+    if (updateData.email !== undefined) vendor.email = updateData.email;
+    if (updateData.mobile !== undefined) vendor.mobile = updateData.mobile;
+
+    // Update vendor/onboarding status
+    if (updateData.vendorStatus !== undefined) vendor.vendorStatus = updateData.vendorStatus;
+    if (updateData.onboardingStatus !== undefined) vendor.onboardingStatus = updateData.onboardingStatus;
+
+    // Update business details (merge)
+    if (updateData.business) {
+      Object.keys(updateData.business).forEach(key => {
+        if (key === 'address' && updateData.business.address) {
+          if (!vendor.business.address) vendor.business.address = {};
+          Object.keys(updateData.business.address).forEach(aKey => {
+            if (updateData.business.address[aKey] !== undefined) {
+              vendor.business.address[aKey] = updateData.business.address[aKey];
+            }
+          });
+        } else if (updateData.business[key] !== undefined) {
+          vendor.business[key] = updateData.business[key];
+        }
+      });
+    }
+
+    // Update bank details
+    if (updateData.bank) {
+      if (!vendor.bank) vendor.bank = {};
+      Object.keys(updateData.bank).forEach(key => {
+        if (updateData.bank[key] !== undefined) {
+          vendor.bank[key] = updateData.bank[key];
+        }
+      });
+    }
+
+    // Update pickup address
+    if (updateData.pickupAddress) {
+      if (!vendor.pickupAddress) vendor.pickupAddress = {};
+      Object.keys(updateData.pickupAddress).forEach(key => {
+        if (updateData.pickupAddress[key] !== undefined) {
+          vendor.pickupAddress[key] = updateData.pickupAddress[key];
+        }
+      });
+    }
+
+    // Update store profile
+    if (updateData.storeProfile) {
+      if (!vendor.storeProfile) vendor.storeProfile = {};
+      Object.keys(updateData.storeProfile).forEach(key => {
+        if (updateData.storeProfile[key] !== undefined) {
+          vendor.storeProfile[key] = updateData.storeProfile[key];
+        }
+      });
+    }
+
+    await vendor.save();
+    
+    res.json({ success: true, message: 'Vendor updated successfully', vendor });
+  } catch (error) {
+    console.error('Admin update vendor error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find({})
-      .populate('user', 'name phone email')
+    const ordersRaw = await Order.find({})
       .populate('vendor', 'business.storeName fullName')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, orders });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    for (let order of ordersRaw) {
+      if (order.user) {
+        let userDoc = await WebsiteUser.findById(order.user).select('fullName email mobile').lean();
+        if (!userDoc) {
+          userDoc = await MobileUser.findById(order.user).select('name phone email').lean();
+        }
+        order.user = userDoc || null;
+      }
+    }
+
+    res.json({ success: true, orders: ordersRaw });
   } catch (error) {
     console.error('Admin get orders error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -284,5 +531,8 @@ module.exports = {
   getAllProducts,
   approveProduct,
   rejectProduct,
+  updateProduct,
+  deleteProduct,
+  updateVendor,
   getAllOrders
 };

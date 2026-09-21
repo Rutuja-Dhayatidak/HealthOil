@@ -63,6 +63,7 @@ function AppContent({ cartItems, setCartItems, handleAddToCart, cartCount, userL
           <ShopDetailsPage 
             shop={selectedShop}
             onBackToShops={() => navigate('/nearby-shops')}
+            onSelectShop={(shop) => setSelectedShop(shop)}
             onAddToCart={handleAddToCart}
             cartCount={cartCount}
             onOpenCart={() => navigate('/cart')}

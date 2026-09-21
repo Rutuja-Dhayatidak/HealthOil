@@ -85,9 +85,15 @@ export const rejectVendor = async (id, reason) => {
   }
 };
 
-export const getAllProducts = async () => {
+export const getAllProducts = async (params = {}) => {
   try {
-    const response = await api.get('/admin/products');
+    const query = new URLSearchParams()
+    if (params.page) query.append('page', params.page)
+    if (params.limit) query.append('limit', params.limit)
+    if (params.search) query.append('search', params.search)
+    if (params.status) query.append('status', params.status)
+    const queryString = query.toString() ? `?${query.toString()}` : ''
+    const response = await api.get(`/admin/products${queryString}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -111,3 +117,31 @@ export const rejectProduct = async (id) => {
     throw error.response?.data || error.message;
   }
 };
+
+export const updateProductAdmin = async (id, data) => {
+  try {
+    const response = await api.put(`/admin/products/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const deleteProductAdmin = async (id) => {
+  try {
+    const response = await api.delete(`/admin/products/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const updateVendorAdmin = async (id, data) => {
+  try {
+    const response = await api.put(`/admin/vendors/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+

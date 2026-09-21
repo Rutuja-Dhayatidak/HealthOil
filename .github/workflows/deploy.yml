@@ -5,21 +5,103 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
+  backend-check:
+    name: Test & Check Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        run: npm install
+        working-directory: backend
+
+  frontend-build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & Build Frontend
+        run: npm install && npm run build
+        working-directory: frontend
+
+  admin-build:
+    name: Build Admin Panel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install & Build Admin Panel
+        run: npm install && npm run build
+        working-directory: admin
+
+  vendor-build:
+    name: Build Vendor Portal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vendor/package-lock.json
+
+      - name: Install & Build Vendor Portal
+        run: npm install && npm run build
+        working-directory: vendor
+
   deploy:
     name: Deploy to VPS
+    needs:
+      - backend-check
+      - frontend-build
+      - admin-build
+      - vendor-build
     runs-on: ubuntu-latest
 
     steps:
       - name: Deploying application via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_REF: ${{ github.ref_name }}
         with:
           host: ${{ secrets.VPS_HOST || '76.13.185.120' }}
           username: ${{ secrets.VPS_USERNAME || 'root' }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
+          envs: DEPLOY_REF
           script: |
+            set -euo pipefail
+
             echo "🚀 Starting Deployment on VPS..."
             
             # Directory where project is cloned on VPS
@@ -32,12 +114,50 @@ jobs:
             
             cd "$APP_DIR"
             
-            echo "📥 Fetching latest code from GitHub..."
-            git fetch origin main || git fetch origin master
-            git reset --hard origin/main || git reset --hard origin/master
+            if [ -z "${DEPLOY_REF:-}" ]; then
+              echo "Error: GitHub branch/ref was not provided to the deployment script."
+              exit 1
+            fi
+
+            echo "📥 Fetching latest code from GitHub ref: $DEPLOY_REF"
+            git fetch --prune origin "$DEPLOY_REF"
+            git reset --hard "origin/$DEPLOY_REF"
+            echo "📌 Deploying commit: $(git rev-parse HEAD)"
             
-            echo "🐳 Building and restarting Docker containers..."
-            docker compose up -d --build --remove-orphans
+            echo "🐳 Building Docker images..."
+            docker compose build
+
+            echo "🧹 Stopping the existing Compose stack before rebinding ports..."
+            docker compose down --remove-orphans
+
+            echo "🔌 Releasing ports 80 and 443 from old VPS services..."
+            for service in nginx apache2; do
+              if systemctl is-active --quiet "$service"; then
+                echo "Stopping host service: $service"
+                systemctl stop "$service"
+              fi
+            done
+
+            PORT_CONTAINERS="$(docker ps -q --filter publish=80 --filter publish=443)"
+            if [ -n "$PORT_CONTAINERS" ]; then
+              echo "Stopping containers that still publish ports 80/443: $PORT_CONTAINERS"
+              docker stop $PORT_CONTAINERS
+              docker rm $PORT_CONTAINERS
+            fi
+
+            echo "🚀 Starting Docker containers..."
+            docker compose up -d --force-recreate --remove-orphans
+
+            echo "🔎 Verifying running containers..."
+            docker compose ps
+            if [ "$(docker compose ps --services --filter status=running | wc -l)" -lt 5 ]; then
+              echo "Error: One or more application containers are not running."
+              docker compose ps
+              exit 1
+            fi
+
+            echo "🌐 Verifying live response..."
+            curl --fail --silent --show-error --max-time 30 https://healthyfood.cafe/ > /dev/null
             
             echo "🧹 Cleaning up dangling images..."
             docker image prune -f

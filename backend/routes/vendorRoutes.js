@@ -5,7 +5,15 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const { protectVendor } = require('../middleware/vendorAuth');
 
-const { registerVendor, sendOtp, verifyOtp, loginVendor, forgotPassword } = require('../controllers/vendorAuthController');
+const { 
+  registerVendor, 
+  sendOtp, 
+  verifyOtp, 
+  loginVendor, 
+  forgotPassword,
+  getVendorRegistrationDetails,
+  updateVendorRegistrationDetails
+} = require('../controllers/vendorAuthController');
 const { saveBusinessDetails, uploadDocument, savePickupAddress, saveBankDetails, submitApplication } = require('../controllers/vendorOnboardingController');
 
 cloudinary.config({
@@ -39,17 +47,37 @@ router.post('/onboarding/pickup', protectVendor, savePickupAddress);
 router.post('/onboarding/bank', protectVendor, saveBankDetails);
 router.post('/onboarding/submit', protectVendor, submitApplication);
 
+// Vendor Registration Details Update Routes
+router.get('/registration-details', protectVendor, getVendorRegistrationDetails);
+router.put('/registration-details', protectVendor, updateVendorRegistrationDetails);
+
 const { getStoreProfile, updateStoreProfile, uploadStoreImages } = require('../controllers/vendorShopController');
 
 // Shop Profile Routes
 router.get('/shop/profile', protectVendor, getStoreProfile);
 router.put('/shop/profile', protectVendor, updateStoreProfile);
 router.post('/shop/profile/images', protectVendor, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), uploadStoreImages);
+
 const { getVendorOrders, updateOrderStatus, getVendorDashboardStats } = require('../controllers/vendorOrderController');
 
 // Vendor Order Routes
 router.get('/dashboard/stats', protectVendor, getVendorDashboardStats);
 router.get('/orders', protectVendor, getVendorOrders);
 router.put('/orders/:orderId/status', protectVendor, updateOrderStatus);
+
+const { 
+  getVendorOffers, 
+  createVendorOffer, 
+  updateVendorOffer, 
+  toggleOfferStatus, 
+  deleteVendorOffer 
+} = require('../controllers/vendorOfferController');
+
+// Vendor Offer Routes
+router.get('/offers', protectVendor, getVendorOffers);
+router.post('/offers', protectVendor, createVendorOffer);
+router.put('/offers/:id', protectVendor, updateVendorOffer);
+router.patch('/offers/:id/status', protectVendor, toggleOfferStatus);
+router.delete('/offers/:id', protectVendor, deleteVendorOffer);
 
 module.exports = router;

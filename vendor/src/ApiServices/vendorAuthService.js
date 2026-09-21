@@ -86,9 +86,30 @@ export const forgotPassword = async (email) => {
 
 // --- Product APIs ---
 
-export const getProducts = async () => {
+export const getProducts = async (params = {}) => {
   try {
-    const response = await api.get('/v1/vendor/products');
+    const query = new URLSearchParams();
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.q) query.append('q', params.q);
+    if (params.status) query.append('status', params.status);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const response = await api.get(`/v1/vendor/products${queryString}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getVendorOrders = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.search) query.append('search', params.search);
+    if (params.status) query.append('status', params.status);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const response = await api.get(`/vendors/orders${queryString}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -252,3 +273,84 @@ export const uploadStoreImages = async (formData) => {
     throw error.response?.data || error.message;
   }
 };
+
+// --- Offers & Discounts APIs ---
+
+export const getVendorOffers = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.search) query.append('search', params.search);
+    if (params.status) query.append('status', params.status);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const response = await api.get(`/vendors/offers${queryString}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const createVendorOffer = async (offerData) => {
+  try {
+    const response = await api.post('/vendors/offers', offerData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const updateVendorOffer = async (id, updateData) => {
+  try {
+    const response = await api.put(`/vendors/offers/${id}`, updateData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const toggleOfferStatus = async (id) => {
+  try {
+    const response = await api.patch(`/vendors/offers/${id}/status`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const deleteVendorOffer = async (id) => {
+  try {
+    const response = await api.delete(`/vendors/offers/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getVendorRegistrationDetails = async () => {
+  try {
+    const response = await api.get('/vendors/registration-details');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const updateVendorRegistrationDetails = async (updateData) => {
+  try {
+    const response = await api.put('/vendors/registration-details', updateData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getActiveCitiesApi = async () => {
+  try {
+    const response = await api.get('/cities/active');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
