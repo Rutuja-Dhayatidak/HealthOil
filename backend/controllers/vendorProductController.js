@@ -24,6 +24,7 @@ const createProduct = async (req, res) => {
       refiningType = '', 
       extractionMethod = '', 
       packagingType = '', 
+      hexCode = '',
       isOrganic = false, 
       fssaiLicenseNo = '', 
       hsnCode = '', 
@@ -38,6 +39,22 @@ const createProduct = async (req, res) => {
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'Product name is required' });
+    }
+
+    // Validate HEX code if provided
+    if (hexCode && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hexCode)) {
+      return res.status(400).json({ success: false, message: 'Enter a valid HEX color code.' });
+    }
+
+    // Validate variants low stock alert threshold
+    if (Array.isArray(variants)) {
+      for (const v of variants) {
+        const initial = Number(v.initialStock) || 0;
+        const threshold = Number(v.lowStockThreshold) || 0;
+        if (threshold > initial) {
+          return res.status(400).json({ success: false, message: 'Low Stock Alert cannot exceed Initial Stock.' });
+        }
+      }
     }
 
     // Sanitize highlights
@@ -55,7 +72,7 @@ const createProduct = async (req, res) => {
           mrp: Number(v.mrp) || 0,
           initialStock: Number(v.initialStock) || 0,
           currentStock: Number(v.initialStock) || 0,
-          lowStockThreshold: Number(v.lowStockThreshold) || 10
+          lowStockThreshold: Number(v.lowStockThreshold) || 0
         }))
       : [{
           size: '1',
@@ -65,7 +82,7 @@ const createProduct = async (req, res) => {
           mrp: 0,
           initialStock: 0,
           currentStock: 0,
-          lowStockThreshold: 10
+          lowStockThreshold: 0
         }];
 
     // Build product document
@@ -82,6 +99,7 @@ const createProduct = async (req, res) => {
         refiningType,
         extractionMethod,
         packagingType,
+        hexCode,
         isOrganic: Boolean(isOrganic),
         fssaiLicenseNo,
         hsnCode,
@@ -202,12 +220,28 @@ const updateProduct = async (req, res) => {
     const vendorId = req.user.id;
     const { 
       name, brandName, description, highlights, 
-      oilType, refiningType, extractionMethod, packagingType, isOrganic, fssaiLicenseNo, hsnCode, shelfLifeDays, 
+      oilType, refiningType, extractionMethod, packagingType, hexCode, isOrganic, fssaiLicenseNo, hsnCode, shelfLifeDays, 
       nutrition, variants 
     } = req.body;
 
     const product = await VendorProduct.findOne({ _id: id, vendor: vendorId });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    // Validate HEX code if provided
+    if (hexCode !== undefined && hexCode !== '' && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hexCode)) {
+      return res.status(400).json({ success: false, message: 'Enter a valid HEX color code.' });
+    }
+
+    // Validate variants low stock alert threshold
+    if (variants && Array.isArray(variants)) {
+      for (const v of variants) {
+        const initial = Number(v.initialStock) || 0;
+        const threshold = Number(v.lowStockThreshold) || 0;
+        if (threshold > initial) {
+          return res.status(400).json({ success: false, message: 'Low Stock Alert cannot exceed Initial Stock.' });
+        }
+      }
+    }
 
     // Update Basic Details
     if (name !== undefined) product.set('basicDetails.name', name);
@@ -225,6 +259,7 @@ const updateProduct = async (req, res) => {
     if (refiningType !== undefined) product.set('compliance.refiningType', refiningType);
     if (extractionMethod !== undefined) product.set('compliance.extractionMethod', extractionMethod);
     if (packagingType !== undefined) product.set('compliance.packagingType', packagingType);
+    if (hexCode !== undefined) product.set('compliance.hexCode', hexCode);
     if (isOrganic !== undefined) product.set('compliance.isOrganic', Boolean(isOrganic));
     if (fssaiLicenseNo !== undefined) product.set('compliance.fssaiLicenseNo', fssaiLicenseNo);
     if (hsnCode !== undefined) product.set('compliance.hsnCode', hsnCode);
@@ -251,7 +286,7 @@ const updateProduct = async (req, res) => {
         mrp: Number(v.mrp) || 0,
         initialStock: Number(v.initialStock) || 0,
         currentStock: Number(v.currentStock ?? v.initialStock ?? 0),
-        lowStockThreshold: Number(v.lowStockThreshold) || 10
+        lowStockThreshold: Number(v.lowStockThreshold) || 0
       }));
       product.set('variants', sanitizedVariants);
     }

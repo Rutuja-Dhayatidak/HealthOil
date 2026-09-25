@@ -89,7 +89,7 @@ export default function Orders() {
         const payload = JSON.parse(atob(token.split('.')[1]))
         const vendorId = payload.id
 
-        const socket = io('http://localhost:5000')
+        const socket = io('http://localhost:5006')
         socket.emit('joinVendorRoom', vendorId)
 
         socket.on('new-order', () => {
@@ -130,7 +130,7 @@ export default function Orders() {
       if (!order) return
 
       const encodedId = encodeURIComponent(order.id);
-      await axios.put(`http://localhost:5000/api/vendors/orders/${encodedId}/status`, { status: newStatus }, {
+      await axios.put(`http://localhost:5006/api/vendors/orders/${encodedId}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${token}` }
       })
 

@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 async function testRegistration() {
-  const BASE_URL = 'http://localhost:5000/api/vendors';
+  const BASE_URL = 'http://localhost:5006/api/vendors';
   const timestamp = Date.now();
   const testVendor = {
     fullName: `Test Vendor ${timestamp}`,

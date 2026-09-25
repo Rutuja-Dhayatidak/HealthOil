@@ -1,11 +1,24 @@
-import { useState } from 'react'
-import { X, Send, Copy, Check, MessageSquare, Mail, Link as LinkIcon, ExternalLink, ShieldAlert, Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { 
+  X, 
+  Send, 
+  Copy, 
+  Check, 
+  MessageSquare, 
+  Mail, 
+  Link as LinkIcon, 
+  Loader2, 
+  Clock, 
+  CheckCircle2, 
+  History
+} from 'lucide-react'
 import toast from 'react-hot-toast'
+import { sendVendorCommunicationApi } from '../ApiServices/adminService'
 
 function SendVendorLinkModal({ isOpen, onClose, vendor }) {
   if (!isOpen || !vendor) return null
 
-  // Determine vendor portal origin (defaults to localhost:5173 or environment host)
+  // Determine vendor portal origin
   const getVendorBaseUrl = () => {
     if (typeof window !== 'undefined') {
       const port = window.location.port
@@ -53,6 +66,10 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
   const [selectedType, setSelectedType] = useState('kyc')
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedMessage, setCopiedMessage] = useState(false)
+  
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false)
+  const [commHistory, setCommHistory] = useState(vendor.communicationHistory || [])
 
   const activeOption = linkOptions.find(o => o.id === selectedType) || linkOptions[0]
   const vendorName = vendor.fullName || 'Partner'
@@ -63,6 +80,12 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
   const defaultMessage = `Hello ${vendorName},\n\nGreetings from HealthOil Admin Team!\n\nPlease use the link below to access your vendor portal for ${storeName}:\n\n🔗 ${activeOption.url}\n\nIf you have any questions or need help with verification, feel free to contact us.\n\nThank you,\nHealthOil Team`
 
   const [customMessage, setCustomMessage] = useState(defaultMessage)
+
+  useEffect(() => {
+    if (vendor && vendor.communicationHistory) {
+      setCommHistory(vendor.communicationHistory)
+    }
+  }, [vendor])
 
   // Update message when link type changes
   const handleTypeChange = (typeId) => {
@@ -85,41 +108,76 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
     setTimeout(() => setCopiedMessage(false), 2000)
   }
 
-  const handleSendWhatsApp = () => {
-    if (!mobile) {
-      toast.error('No mobile number available for this vendor.')
+  const handleSendEmail = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Invalid or missing vendor email address.')
       return
     }
-    const cleanMobile = mobile.length === 10 ? `91${mobile}` : mobile
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanMobile}&text=${encodeURIComponent(customMessage)}`
-    window.open(whatsappUrl, '_blank')
-    toast.success('Opening WhatsApp...')
+
+    try {
+      setSendingEmail(true)
+      const res = await sendVendorCommunicationApi(vendor._id, {
+        type: 'EMAIL',
+        subject: `HealthOil Vendor Portal Link - ${storeName}`,
+        message: customMessage
+      })
+
+      if (res.success) {
+        toast.success(`✉️ Email sent successfully to ${email}!`)
+        if (res.communicationHistory) {
+          setCommHistory(res.communicationHistory)
+        }
+      }
+    } catch (err) {
+      console.error('Email dispatch error:', err)
+      toast.error(err?.message || 'Failed to send Email to vendor.')
+    } finally {
+      setSendingEmail(false)
+    }
   }
 
-  const handleSendEmail = () => {
-    if (!email) {
-      toast.error('No email address available for this vendor.')
+  const handleSendWhatsApp = async () => {
+    const mobileDigits = mobile ? String(mobile).replace(/\D/g, '') : ''
+    if (!mobileDigits || mobileDigits.length < 10) {
+      toast.error('Invalid or missing 10-digit mobile number for WhatsApp.')
       return
     }
-    const subject = encodeURIComponent(`HealthOil Vendor Portal Link - ${storeName}`)
-    const body = encodeURIComponent(customMessage)
-    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_self')
-    toast.success('Opening Email client...')
+
+    try {
+      setSendingWhatsapp(true)
+      const res = await sendVendorCommunicationApi(vendor._id, {
+        type: 'WHATSAPP',
+        message: customMessage
+      })
+
+      if (res.success && res.whatsappUrl) {
+        window.open(res.whatsappUrl, '_blank')
+        toast.success(`💬 WhatsApp chat opened for +91 ${mobileDigits.slice(-10)}!`)
+        if (res.communicationHistory) {
+          setCommHistory(res.communicationHistory)
+        }
+      }
+    } catch (err) {
+      console.error('WhatsApp dispatch error:', err)
+      toast.error(err?.message || 'Failed to dispatch WhatsApp message.')
+    } finally {
+      setSendingWhatsapp(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl border border-[#b89547]/30 flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl border border-[#b89547]/30 flex flex-col text-left">
         
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[#FAF8F5] to-white rounded-t-3xl">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-xs">
               <Send className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-serif font-bold text-[#031d13]">Send Link to Vendor</h3>
-              <p className="text-xs text-gray-500">Share verification, onboarding, or login links with the vendor</p>
+              <h3 className="text-lg font-serif font-bold text-[#031d13]">Send Link & Message to Vendor</h3>
+              <p className="text-xs text-gray-500">Dispatch verification, onboarding, or login links via Email & WhatsApp API</p>
             </div>
           </div>
           <button 
@@ -131,7 +189,7 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6 flex-1 text-left">
+        <div className="p-6 space-y-6 flex-1">
           
           {/* Vendor Summary Card */}
           <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-wrap items-center justify-between gap-3">
@@ -145,14 +203,14 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
                   📱 +91 {mobile.slice(-10)}
                 </span>
               ) : (
-                <span className="text-gray-400 text-[11px]">No Phone</span>
+                <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2 py-0.5 rounded">No Mobile</span>
               )}
               {email ? (
                 <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg font-medium border border-blue-100">
                   ✉️ {email}
                 </span>
               ) : (
-                <span className="text-gray-400 text-[11px]">No Email</span>
+                <span className="text-red-500 font-bold text-[11px] bg-red-50 px-2 py-0.5 rounded">No Email</span>
               )}
             </div>
           </div>
@@ -172,7 +230,7 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
                     onClick={() => handleTypeChange(opt.id)}
                     className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-blue-500 bg-blue-50/70 shadow-sm ring-2 ring-blue-500/20'
+                        ? 'border-blue-500 bg-blue-50/70 shadow-xs ring-2 ring-blue-500/20'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/60'
                     }`}
                   >
@@ -238,6 +296,45 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
             />
           </div>
 
+          {/* Communication History Section */}
+          {commHistory.length > 0 && (
+            <div className="border-t border-gray-100 pt-4 space-y-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5 text-blue-600" />
+                Communication History ({commHistory.length})
+              </span>
+              <div className="space-y-2 max-h-36 overflow-y-auto custom-scrollbar">
+                {commHistory.slice(-5).reverse().map((item, idx) => (
+                  <div key={idx} className="bg-gray-50 border border-gray-200/80 rounded-xl p-2.5 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {item.type === 'EMAIL' ? (
+                        <Mail className="w-4 h-4 text-blue-600 shrink-0" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-800 truncate">{item.subject || item.type}</p>
+                        <p className="text-[10px] text-gray-400 truncate">Sent to: {item.sentTo}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {item.status || 'SENT'}
+                      </span>
+                      <p className="text-[9px] text-gray-400 mt-0.5">
+                        {new Date(item.sentAt).toLocaleString('en-IN', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Footer Quick Action Buttons */}
@@ -251,27 +348,25 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
           </button>
 
           <div className="flex items-center gap-2">
-            {email && (
-              <button
-                type="button"
-                onClick={handleSendEmail}
-                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Send Email
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSendEmail}
+              disabled={sendingEmail}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+              <span>{sendingEmail ? 'Sending Email...' : 'Send Email'}</span>
+            </button>
 
-            {mobile && (
-              <button
-                type="button"
-                onClick={handleSendWhatsApp}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                Send on WhatsApp
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSendWhatsApp}
+              disabled={sendingWhatsapp}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              {sendingWhatsapp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
+              <span>{sendingWhatsapp ? 'Dispatching...' : 'Send on WhatsApp'}</span>
+            </button>
 
             <button
               type="button"
@@ -279,7 +374,7 @@ function SendVendorLinkModal({ isOpen, onClose, vendor }) {
               className="px-4 py-2 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
             >
               <Copy className="w-3.5 h-3.5" />
-              Copy Link
+              <span>Copy Link</span>
             </button>
           </div>
         </div>

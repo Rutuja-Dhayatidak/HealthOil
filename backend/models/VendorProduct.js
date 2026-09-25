@@ -34,6 +34,7 @@ const vendorProductSchema = new mongoose.Schema({
     refiningType: { type: String, default: '' },
     extractionMethod: { type: String, default: '' },
     packagingType: { type: String, default: '' },
+    hexCode: { type: String, default: '' },
     isOrganic: { type: Boolean, default: false },
     fssaiLicenseNo: { type: String, default: '' },
     hsnCode: { type: String, default: '' },
@@ -63,7 +64,8 @@ const vendorProductSchema = new mongoose.Schema({
     default: 'PENDING_APPROVAL'
   },
   approvedAt: { type: Date },
-  rejectedAt: { type: Date }
+  rejectedAt: { type: Date },
+  rejectionReason: { type: String, default: '' }
 }, {
   timestamps: true
 });

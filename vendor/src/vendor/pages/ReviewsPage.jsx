@@ -39,7 +39,7 @@ const getProductImageUrl = (img) => {
     return rawUrl
   }
   const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
-  return `http://localhost:5000${cleanPath}`
+  return `http://localhost:5006${cleanPath}`
 }
 
 export default function ReviewsPage() {
@@ -60,7 +60,7 @@ export default function ReviewsPage() {
       const vendorData = JSON.parse(vendorDataStr)
       const vendorId = vendorData.id || vendorData._id
 
-      const res = await fetch(`http://localhost:5000/api/reviews/vendor/${vendorId}`)
+      const res = await fetch(`http://localhost:5006/api/reviews/vendor/${vendorId}`)
       const data = await res.json()
       if (data.success) {
         setReviews(data.reviews || [])
@@ -81,7 +81,7 @@ export default function ReviewsPage() {
   const handleToggleFeature = async (reviewId, currentStatus) => {
     try {
       setTogglingId(reviewId)
-      const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}/feature`, {
+      const res = await fetch(`http://localhost:5006/api/reviews/${reviewId}/feature`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isFeatured: !currentStatus })
@@ -103,7 +103,7 @@ export default function ReviewsPage() {
     if (!replyText.trim()) return toast.error('Please enter reply message')
     try {
       setIsSubmittingReply(true)
-      const res = await fetch(`http://localhost:5000/api/reviews/${reviewId}/reply`, {
+      const res = await fetch(`http://localhost:5006/api/reviews/${reviewId}/reply`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: replyText.trim() })

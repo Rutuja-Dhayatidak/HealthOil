@@ -62,6 +62,13 @@ const saveBankDetails = async (req, res) => {
     const vendor = await Vendor.findById(req.user.id);
     if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
     
+    const { accountNumber, confirmAccount, confirmAccountNumber } = req.body;
+    const confirm = confirmAccount !== undefined ? confirmAccount : confirmAccountNumber;
+    
+    if (confirm !== undefined && accountNumber !== confirm) {
+      return res.status(400).json({ success: false, message: 'Account Number and Confirm Account Number do not match.' });
+    }
+    
     vendor.bank = req.body;
     vendor.onboardingStatus = 'BANK_DETAILS_PENDING';
     await vendor.save();

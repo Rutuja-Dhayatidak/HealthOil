@@ -9,7 +9,7 @@ export default defineConfig({
     open: '/admin/login',
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5006',
         changeOrigin: true,
       },
     },

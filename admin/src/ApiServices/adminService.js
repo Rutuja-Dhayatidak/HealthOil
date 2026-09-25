@@ -1,8 +1,8 @@
 import api from './axiosConfig';
 
-export const getAdminStats = async () => {
+export const getAdminStats = async (range = 'this_week') => {
   try {
-    const response = await api.get('/admin/stats');
+    const response = await api.get(`/admin/stats?range=${range}`);
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -109,9 +109,9 @@ export const approveProduct = async (id) => {
   }
 };
 
-export const rejectProduct = async (id) => {
+export const rejectProduct = async (id, reason) => {
   try {
-    const response = await api.patch(`/admin/products/${id}/reject`);
+    const response = await api.patch(`/admin/products/${id}/reject`, { reason });
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;
@@ -144,4 +144,73 @@ export const updateVendorAdmin = async (id, data) => {
     throw error.response?.data || error.message;
   }
 };
+
+export const getAdminPayments = async () => {
+  try {
+    const response = await api.get('/admin/payments');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getVendorsAdminApi = async (params = {}) => {
+  try {
+    const query = new URLSearchParams();
+    if (typeof params === 'string') {
+      query.append('status', params);
+    } else {
+      if (params.status) query.append('status', params.status);
+      if (params.page) query.append('page', params.page);
+      if (params.limit) query.append('limit', params.limit);
+      if (params.search) query.append('search', params.search);
+    }
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const response = await api.get(`/admin/vendors${queryString}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+
+export const toggleVendorSuspendApi = async (id) => {
+  try {
+    const response = await api.put(`/admin/vendors/${id}/suspend`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const sendVendorCommunicationApi = async (vendorId, payload) => {
+  try {
+    const response = await api.post(`/admin/vendors/${vendorId}/communication`, payload);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getAllOrders = async () => {
+  try {
+    const response = await api.get('/admin/orders');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const updateOrderStatusAdminApi = async (orderId, status) => {
+  try {
+    const response = await api.put(`/admin/orders/${orderId}/status`, { status });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+
+
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, User, Building2, Landmark, MapPin, Store, Save, Loader2, ChevronDown, ChevronUp, Sparkles, Shield } from 'lucide-react'
+import { X, User, Building2, Landmark, MapPin, Store, ChevronDown, ChevronUp, Lock, Shield, Eye } from 'lucide-react'
 import gsap from 'gsap'
 
 const SectionHeader = ({ icon: Icon, title, subtitle, isOpen, onToggle, accentColor = '#0b3b84' }) => (
@@ -30,21 +30,21 @@ const FieldLabel = ({ children }) => (
   <label className="block text-[11px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">{children}</label>
 )
 
-const InputField = ({ label, value, onChange, placeholder, type = 'text', disabled }) => (
+const InputField = ({ label, value, placeholder, type = 'text' }) => (
   <div>
     <FieldLabel>{label}</FieldLabel>
     <input
       type={type}
       value={value || ''}
-      onChange={onChange}
+      readOnly
+      disabled
       placeholder={placeholder}
-      disabled={disabled}
-      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-[#0b3b84] focus:ring-2 focus:ring-[#0b3b84]/10 transition-all bg-white placeholder-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
+      className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none bg-gray-50 text-gray-700 font-semibold cursor-not-allowed"
     />
   </div>
 )
 
-export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLoading }) {
+export default function VendorEditDrawer({ isOpen, onClose, vendor }) {
   const drawerRef = useRef(null)
   const backdropRef = useRef(null)
 
@@ -57,77 +57,8 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
     status: true
   })
 
-  const [form, setForm] = useState({
-    fullName: '',
-    email: '',
-    mobile: '',
-    vendorStatus: 'INACTIVE',
-    onboardingStatus: 'CONTACT_VERIFICATION_PENDING',
-    business: {
-      storeName: '', legalBusinessName: '', businessType: '', gstNumber: '', panNumber: '',
-      businessEmail: '', businessPhone: '',
-      address: { addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: '' }
-    },
-    bank: {
-      accountHolderName: '', bankName: '', accountNumber: '', ifscCode: '', accountType: ''
-    },
-    pickupAddress: {
-      contactName: '', mobile: '', addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: ''
-    },
-    storeProfile: {
-      description: '', businessCategory: '', openTime: '', closeTime: ''
-    }
-  })
-
   useEffect(() => {
     if (vendor) {
-      setForm({
-        fullName: vendor.fullName || '',
-        email: vendor.email || '',
-        mobile: vendor.mobile || '',
-        vendorStatus: vendor.vendorStatus || 'INACTIVE',
-        onboardingStatus: vendor.onboardingStatus || 'CONTACT_VERIFICATION_PENDING',
-        business: {
-          storeName: vendor.business?.storeName || '',
-          legalBusinessName: vendor.business?.legalBusinessName || '',
-          businessType: vendor.business?.businessType || '',
-          gstNumber: vendor.business?.gstNumber || '',
-          panNumber: vendor.business?.panNumber || '',
-          businessEmail: vendor.business?.businessEmail || '',
-          businessPhone: vendor.business?.businessPhone || '',
-          address: {
-            addressLine1: vendor.business?.address?.addressLine1 || '',
-            addressLine2: vendor.business?.address?.addressLine2 || '',
-            landmark: vendor.business?.address?.landmark || '',
-            city: vendor.business?.address?.city || '',
-            state: vendor.business?.address?.state || '',
-            pincode: vendor.business?.address?.pincode || ''
-          }
-        },
-        bank: {
-          accountHolderName: vendor.bank?.accountHolderName || '',
-          bankName: vendor.bank?.bankName || '',
-          accountNumber: vendor.bank?.accountNumber || '',
-          ifscCode: vendor.bank?.ifscCode || '',
-          accountType: vendor.bank?.accountType || ''
-        },
-        pickupAddress: {
-          contactName: vendor.pickupAddress?.contactName || '',
-          mobile: vendor.pickupAddress?.mobile || '',
-          addressLine1: vendor.pickupAddress?.addressLine1 || '',
-          addressLine2: vendor.pickupAddress?.addressLine2 || '',
-          landmark: vendor.pickupAddress?.landmark || '',
-          city: vendor.pickupAddress?.city || '',
-          state: vendor.pickupAddress?.state || '',
-          pincode: vendor.pickupAddress?.pincode || ''
-        },
-        storeProfile: {
-          description: vendor.storeProfile?.description || '',
-          businessCategory: vendor.storeProfile?.businessCategory || '',
-          openTime: vendor.storeProfile?.openTime || '',
-          closeTime: vendor.storeProfile?.closeTime || ''
-        }
-      })
       setOpenSections({ personal: true, business: true, bank: true, pickup: false, store: false, status: true })
     }
   }, [vendor])
@@ -144,42 +75,11 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
 
   const toggleSection = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }))
 
-  const updateField = (path, value) => {
-    setForm(prev => {
-      const parts = path.split('.')
-      const newForm = JSON.parse(JSON.stringify(prev))
-      let target = newForm
-      for (let i = 0; i < parts.length - 1; i++) {
-        target = target[parts[i]]
-      }
-      target[parts[parts.length - 1]] = value
-      return newForm
-    })
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (isLoading) return
-    onSave(vendor._id, form)
-  }
-
   const vendorStatusConfig = {
     ACTIVE: { label: 'Active', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0' },
     INACTIVE: { label: 'Inactive', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
     SUSPENDED: { label: 'Suspended', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
   }
-
-  const onboardingOptions = [
-    { value: 'CONTACT_VERIFICATION_PENDING', label: 'Contact Verification Pending' },
-    { value: 'OTP_VERIFIED', label: 'OTP Verified' },
-    { value: 'BUSINESS_DETAILS_PENDING', label: 'Business Details Pending' },
-    { value: 'DOCUMENTS_PENDING', label: 'Documents Pending' },
-    { value: 'PICKUP_DETAILS_PENDING', label: 'Pickup Details Pending' },
-    { value: 'BANK_DETAILS_PENDING', label: 'Bank Details Pending' },
-    { value: 'UNDER_REVIEW', label: 'Under Review' },
-    { value: 'APPROVED', label: 'Approved' },
-    { value: 'REJECTED', label: 'Rejected' }
-  ]
 
   return (
     <>
@@ -200,12 +100,12 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
-                <Sparkles className="w-5 h-5 text-yellow-300" />
+                <Eye className="w-5 h-5 text-yellow-300" />
               </div>
               <div>
-                <h3 className="font-bold text-[17px] text-white tracking-tight leading-tight">Edit Vendor</h3>
+                <h3 className="font-bold text-[17px] text-white tracking-tight leading-tight">Vendor Details (View Only)</h3>
                 <p className="text-[11px] text-blue-200/80 mt-0.5 truncate max-w-[300px] font-medium">
-                  {vendor?.business?.storeName || vendor?.fullName || 'Vendor'}
+                  {vendor?.business?.storeName || vendor?.fullName || 'Vendor Profile'}
                 </p>
               </div>
             </div>
@@ -216,8 +116,19 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
         </div>
 
         {vendor && (
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto flex flex-col min-h-0 text-left">
             <div className="flex-1 overflow-y-auto p-5 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+
+              {/* View Only Warning Banner */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs font-semibold text-amber-800 flex items-start gap-3 shadow-2xs">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-900">Read-Only Permission Enforced</p>
+                  <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                    Admins are not permitted to edit vendor profile details. Vendor profile editing is restricted to the vendor via the Vendor Panel.
+                  </p>
+                </div>
+              </div>
 
               {/* ===== Personal Info ===== */}
               <div className="bg-white rounded-2xl border border-gray-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -226,10 +137,10 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
                 </div>
                 {openSections.personal && (
                   <div className="px-5 pb-5 space-y-3.5 border-t border-gray-100 pt-4">
-                    <InputField label="Full Name" value={form.fullName} onChange={(e) => updateField('fullName', e.target.value)} placeholder="Owner full name" />
+                    <InputField label="Full Name" value={vendor.fullName} placeholder="Owner full name" />
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Email" value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="email@example.com" type="email" />
-                      <InputField label="Mobile" value={form.mobile} onChange={(e) => updateField('mobile', e.target.value)} placeholder="9876543210" />
+                      <InputField label="Email" value={vendor.email} placeholder="email@example.com" type="email" />
+                      <InputField label="Mobile" value={vendor.mobile} placeholder="9876543210" />
                     </div>
                   </div>
                 )}
@@ -243,27 +154,27 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
                 {openSections.business && (
                   <div className="px-5 pb-5 space-y-3.5 border-t border-gray-100 pt-4">
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Store Name" value={form.business.storeName} onChange={(e) => updateField('business.storeName', e.target.value)} placeholder="Store name" />
-                      <InputField label="Legal Business Name" value={form.business.legalBusinessName} onChange={(e) => updateField('business.legalBusinessName', e.target.value)} placeholder="Legal name" />
+                      <InputField label="Store Name" value={vendor.business?.storeName} placeholder="Store name" />
+                      <InputField label="Legal Business Name" value={vendor.business?.legalBusinessName} placeholder="Legal name" />
                     </div>
                     <div className="grid grid-cols-3 gap-3.5">
-                      <InputField label="Business Type" value={form.business.businessType} onChange={(e) => updateField('business.businessType', e.target.value)} placeholder="e.g. Proprietorship" />
-                      <InputField label="GST Number" value={form.business.gstNumber} onChange={(e) => updateField('business.gstNumber', e.target.value)} placeholder="GST number" />
-                      <InputField label="PAN Number" value={form.business.panNumber} onChange={(e) => updateField('business.panNumber', e.target.value)} placeholder="PAN number" />
+                      <InputField label="Business Type" value={vendor.business?.businessType} placeholder="e.g. Proprietorship" />
+                      <InputField label="GST Number" value={vendor.business?.gstNumber} placeholder="GST number" />
+                      <InputField label="PAN Number" value={vendor.business?.panNumber} placeholder="PAN number" />
                     </div>
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Business Email" value={form.business.businessEmail} onChange={(e) => updateField('business.businessEmail', e.target.value)} placeholder="Business email" />
-                      <InputField label="Business Phone" value={form.business.businessPhone} onChange={(e) => updateField('business.businessPhone', e.target.value)} placeholder="Business phone" />
+                      <InputField label="Business Email" value={vendor.business?.businessEmail} placeholder="Business email" />
+                      <InputField label="Business Phone" value={vendor.business?.businessPhone} placeholder="Business phone" />
                     </div>
                     <div className="pt-2 border-t border-gray-100 mt-2">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Business Address</p>
                       <div className="space-y-3">
-                        <InputField label="Address Line 1" value={form.business.address.addressLine1} onChange={(e) => updateField('business.address.addressLine1', e.target.value)} placeholder="Street address" />
-                        <InputField label="Address Line 2" value={form.business.address.addressLine2} onChange={(e) => updateField('business.address.addressLine2', e.target.value)} placeholder="Apartment, suite, etc." />
+                        <InputField label="Address Line 1" value={vendor.business?.address?.addressLine1} placeholder="Street address" />
+                        <InputField label="Address Line 2" value={vendor.business?.address?.addressLine2} placeholder="Apartment, suite, etc." />
                         <div className="grid grid-cols-3 gap-3.5">
-                          <InputField label="City" value={form.business.address.city} onChange={(e) => updateField('business.address.city', e.target.value)} placeholder="City" />
-                          <InputField label="State" value={form.business.address.state} onChange={(e) => updateField('business.address.state', e.target.value)} placeholder="State" />
-                          <InputField label="Pincode" value={form.business.address.pincode} onChange={(e) => updateField('business.address.pincode', e.target.value)} placeholder="Pincode" />
+                          <InputField label="City" value={vendor.business?.address?.city} placeholder="City" />
+                          <InputField label="State" value={vendor.business?.address?.state} placeholder="State" />
+                          <InputField label="Pincode" value={vendor.business?.address?.pincode} placeholder="Pincode" />
                         </div>
                       </div>
                     </div>
@@ -278,25 +189,14 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
                 </div>
                 {openSections.bank && (
                   <div className="px-5 pb-5 space-y-3.5 border-t border-gray-100 pt-4">
-                    <InputField label="Account Holder Name" value={form.bank.accountHolderName} onChange={(e) => updateField('bank.accountHolderName', e.target.value)} placeholder="Account holder name" />
+                    <InputField label="Account Holder Name" value={vendor.bank?.accountHolderName} placeholder="Account holder name" />
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Bank Name" value={form.bank.bankName} onChange={(e) => updateField('bank.bankName', e.target.value)} placeholder="e.g. SBI, HDFC" />
-                      <InputField label="Account Number" value={form.bank.accountNumber} onChange={(e) => updateField('bank.accountNumber', e.target.value)} placeholder="Account number" />
+                      <InputField label="Bank Name" value={vendor.bank?.bankName} placeholder="e.g. SBI, HDFC" />
+                      <InputField label="Account Number" value={vendor.bank?.accountNumber} placeholder="Account number" />
                     </div>
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="IFSC Code" value={form.bank.ifscCode} onChange={(e) => updateField('bank.ifscCode', e.target.value)} placeholder="e.g. SBIN0001234" />
-                      <div>
-                        <FieldLabel>Account Type</FieldLabel>
-                        <select
-                          value={form.bank.accountType}
-                          onChange={(e) => updateField('bank.accountType', e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-[#0b3b84] bg-white font-medium cursor-pointer"
-                        >
-                          <option value="">Select</option>
-                          <option value="Savings">Savings</option>
-                          <option value="Current">Current</option>
-                        </select>
-                      </div>
+                      <InputField label="IFSC Code" value={vendor.bank?.ifscCode} placeholder="e.g. SBIN0001234" />
+                      <InputField label="Account Type" value={vendor.bank?.accountType} placeholder="Savings / Current" />
                     </div>
                   </div>
                 )}
@@ -310,15 +210,15 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
                 {openSections.pickup && (
                   <div className="px-5 pb-5 space-y-3.5 border-t border-gray-100 pt-4">
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Contact Name" value={form.pickupAddress.contactName} onChange={(e) => updateField('pickupAddress.contactName', e.target.value)} placeholder="Contact person" />
-                      <InputField label="Mobile" value={form.pickupAddress.mobile} onChange={(e) => updateField('pickupAddress.mobile', e.target.value)} placeholder="Mobile number" />
+                      <InputField label="Contact Name" value={vendor.pickupAddress?.contactName} placeholder="Contact person" />
+                      <InputField label="Mobile" value={vendor.pickupAddress?.mobile} placeholder="Mobile number" />
                     </div>
-                    <InputField label="Address Line 1" value={form.pickupAddress.addressLine1} onChange={(e) => updateField('pickupAddress.addressLine1', e.target.value)} placeholder="Street address" />
-                    <InputField label="Address Line 2" value={form.pickupAddress.addressLine2} onChange={(e) => updateField('pickupAddress.addressLine2', e.target.value)} placeholder="Apartment, suite, etc." />
+                    <InputField label="Address Line 1" value={vendor.pickupAddress?.addressLine1} placeholder="Street address" />
+                    <InputField label="Address Line 2" value={vendor.pickupAddress?.addressLine2} placeholder="Apartment, suite, etc." />
                     <div className="grid grid-cols-3 gap-3.5">
-                      <InputField label="City" value={form.pickupAddress.city} onChange={(e) => updateField('pickupAddress.city', e.target.value)} placeholder="City" />
-                      <InputField label="State" value={form.pickupAddress.state} onChange={(e) => updateField('pickupAddress.state', e.target.value)} placeholder="State" />
-                      <InputField label="Pincode" value={form.pickupAddress.pincode} onChange={(e) => updateField('pickupAddress.pincode', e.target.value)} placeholder="Pincode" />
+                      <InputField label="City" value={vendor.pickupAddress?.city} placeholder="City" />
+                      <InputField label="State" value={vendor.pickupAddress?.state} placeholder="State" />
+                      <InputField label="Pincode" value={vendor.pickupAddress?.pincode} placeholder="Pincode" />
                     </div>
                   </div>
                 )}
@@ -335,16 +235,17 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
                       <FieldLabel>Store Description</FieldLabel>
                       <textarea
                         rows={3}
-                        value={form.storeProfile.description}
-                        onChange={(e) => updateField('storeProfile.description', e.target.value)}
-                        placeholder="Store description..."
-                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-[#0b3b84] focus:ring-2 focus:ring-[#0b3b84]/10 transition-all bg-white placeholder-gray-300 resize-none"
+                        value={vendor.storeProfile?.description || ''}
+                        readOnly
+                        disabled
+                        placeholder="No description provided..."
+                        className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none bg-gray-50 text-gray-700 font-semibold cursor-not-allowed resize-none"
                       />
                     </div>
-                    <InputField label="Business Category" value={form.storeProfile.businessCategory} onChange={(e) => updateField('storeProfile.businessCategory', e.target.value)} placeholder="e.g. Cooking Oils" />
+                    <InputField label="Business Category" value={vendor.storeProfile?.businessCategory} placeholder="e.g. Cooking Oils" />
                     <div className="grid grid-cols-2 gap-3.5">
-                      <InputField label="Open Time" value={form.storeProfile.openTime} onChange={(e) => updateField('storeProfile.openTime', e.target.value)} placeholder="e.g. 09:00 AM" />
-                      <InputField label="Close Time" value={form.storeProfile.closeTime} onChange={(e) => updateField('storeProfile.closeTime', e.target.value)} placeholder="e.g. 09:00 PM" />
+                      <InputField label="Open Time" value={vendor.storeProfile?.openTime} placeholder="e.g. 09:00 AM" />
+                      <InputField label="Close Time" value={vendor.storeProfile?.closeTime} placeholder="e.g. 09:00 PM" />
                     </div>
                   </div>
                 )}
@@ -354,45 +255,24 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
               <div className="bg-white rounded-2xl border border-gray-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 space-y-4">
                 <div>
                   <FieldLabel>Vendor Status</FieldLabel>
-                  <div className="grid grid-cols-3 gap-2.5 mt-1">
-                    {Object.entries(vendorStatusConfig).map(([key, cfg]) => (
-                      <button
-                        type="button"
-                        key={key}
-                        onClick={() => updateField('vendorStatus', key)}
-                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all cursor-pointer"
-                        style={{
-                          borderColor: form.vendorStatus === key ? cfg.color : '#e5e7eb',
-                          backgroundColor: form.vendorStatus === key ? cfg.bg : '#ffffff',
-                        }}
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0 border-2"
-                          style={{
-                            borderColor: form.vendorStatus === key ? cfg.color : '#d1d5db',
-                            backgroundColor: form.vendorStatus === key ? cfg.color : 'transparent',
-                            boxShadow: form.vendorStatus === key ? `0 0 0 3px ${cfg.color}20` : 'none'
-                          }}
-                        />
-                        <span className="text-[12px] font-semibold" style={{ color: form.vendorStatus === key ? cfg.color : '#9ca3af' }}>
-                          {cfg.label}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="mt-1">
+                    <span className="inline-block px-3 py-1 rounded-xl border font-bold text-xs" style={{
+                      borderColor: vendorStatusConfig[vendor.vendorStatus]?.color || '#e5e7eb',
+                      backgroundColor: vendorStatusConfig[vendor.vendorStatus]?.bg || '#f9fafb',
+                      color: vendorStatusConfig[vendor.vendorStatus]?.color || '#374151'
+                    }}>
+                      {vendorStatusConfig[vendor.vendorStatus]?.label || vendor.vendorStatus}
+                    </span>
                   </div>
                 </div>
 
                 <div>
                   <FieldLabel>Onboarding Status</FieldLabel>
-                  <select
-                    value={form.onboardingStatus}
-                    onChange={(e) => updateField('onboardingStatus', e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-[13px] outline-none focus:border-[#0b3b84] bg-white font-medium cursor-pointer"
-                  >
-                    {onboardingOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <span className="inline-block px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs">
+                      {vendor.onboardingStatus?.replace(/_/g, ' ')}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -400,25 +280,16 @@ export default function VendorEditDrawer({ isOpen, onClose, vendor, onSave, isLo
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4 flex items-center justify-between gap-3">
+            <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4 flex items-center justify-end">
               <button
                 type="button"
-                disabled={isLoading}
                 onClick={onClose}
-                className="px-5 py-2.5 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:text-gray-700 font-semibold text-[13px] transition-all disabled:opacity-50 cursor-pointer"
+                className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-[13px] transition-all cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="px-7 py-2.5 bg-gradient-to-r from-[#0b3b84] to-[#0a2f6b] text-white rounded-xl font-bold text-[13px] hover:from-[#0a2f6b] hover:to-[#082660] transition-all flex items-center gap-2 disabled:opacity-50 shadow-md shadow-blue-900/20 cursor-pointer"
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save All Changes
+                Close Drawer
               </button>
             </div>
-          </form>
+          </div>
         )}
       </div>
     </>

@@ -140,6 +140,9 @@ export default function Step3Variants() {
                       errors.variants?.[index]?.lowStockThreshold ? 'border-red-300 focus:border-red-500' : 'border-[#D4AF37]/20 focus:border-[#002F24]'
                     }`}
                   />
+                  {errors.variants?.[index]?.lowStockThreshold && (
+                    <p className="text-[9px] text-red-500 mt-1 font-bold">{errors.variants[index].lowStockThreshold.message}</p>
+                  )}
                 </div>
 
               </div>

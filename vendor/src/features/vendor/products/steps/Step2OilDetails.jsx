@@ -73,6 +73,46 @@ export default function Step2OilDetails() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                Oil Color / Theme HEX Code <span className="font-normal lowercase text-gray-400">(e.g. #D4AF37)</span>
+              </label>
+              <Controller
+                control={control}
+                name="hexCode"
+                render={({ field: { onChange, value } }) => (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-10 h-10 rounded-xl border border-gray-300 shrink-0 shadow-inner flex items-center justify-center transition-colors relative overflow-hidden"
+                        style={{ backgroundColor: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(value || '') ? value : '#f3f4f6' }}
+                      >
+                        <input
+                          type="color"
+                          value={/^#([A-Fa-f0-9]{6})$/.test(value || '') ? value : '#D4AF37'}
+                          onChange={(e) => onChange(e.target.value)}
+                          className="w-12 h-12 -m-2 opacity-0 cursor-pointer absolute inset-0"
+                          title="Pick color"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="#D4AF37"
+                        value={value || ''}
+                        onChange={(e) => onChange(e.target.value)}
+                        className={`w-full bg-[#F8F2E7]/40 border rounded-xl px-4 py-2.5 text-sm font-mono outline-none transition-colors ${
+                          errors.hexCode ? 'border-red-300 focus:border-red-500' : 'border-[#D4AF37]/20 focus:border-[#002F24]'
+                        }`}
+                      />
+                    </div>
+                    {errors.hexCode && (
+                      <p className="text-[10px] text-red-500 font-bold">{errors.hexCode.message}</p>
+                    )}
+                  </div>
+                )}
+              />
+            </div>
+
             <div className="flex items-center gap-3 pt-2">
               <input type="checkbox" {...register('isOrganic')} id="isOrganic" className="w-4 h-4 text-[#002F24] rounded border-gray-300 focus:ring-[#002F24]" />
               <label htmlFor="isOrganic" className="text-sm text-gray-700 font-medium cursor-pointer">This product is Certified Organic</label>

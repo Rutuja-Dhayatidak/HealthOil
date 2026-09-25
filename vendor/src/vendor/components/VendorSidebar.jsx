@@ -13,6 +13,7 @@ import {
   Star,
   Store, 
   FileText,
+  Bell,
   HelpCircle, 
   Headset,
   LogOut,
@@ -73,6 +74,13 @@ function VendorSidebar() {
       items: [
         { name: 'Store Profile', path: '/vendor/shop', icon: Store },
         { name: 'Documents & Verification', path: '/vendor/kyc', icon: FileText },
+      ]
+    },
+    {
+      title: 'SUPPORT',
+      items: [
+        { name: 'Notifications', path: '/vendor/notifications', icon: Bell },
+        { name: 'Help & Support', path: '/vendor/support', icon: HelpCircle },
       ]
     },
   ]

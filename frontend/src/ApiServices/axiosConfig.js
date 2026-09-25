@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5006/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,8 +27,14 @@ api.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    return Promise.reject(error.response ? error.response.data : error);
+    const errorData = error.response ? error.response.data : error;
+    if (error.response?.status === 403 || errorData?.message?.toLowerCase().includes('suspended')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    return Promise.reject(errorData);
   }
 );
+
 
 export default api;

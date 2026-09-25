@@ -26,7 +26,7 @@ const getProductImageUrl = (product) => {
     return rawUrl
   }
   const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
-  return `http://localhost:5000${cleanPath}`
+  return `http://localhost:5006${cleanPath}`
 }
 
 function Products({ refreshStats }) {
@@ -109,16 +109,25 @@ function Products({ refreshStats }) {
     }
   }
 
-  const handleReject = async (id) => {
+  const handleReject = async (id, reason) => {
+    let rejectionReason = reason
+    if (!rejectionReason) {
+      rejectionReason = window.prompt("Mandatory reason for rejection:")
+    }
+    if (!rejectionReason || !rejectionReason.trim()) {
+      toast.error('Rejection reason is required')
+      return
+    }
+
     try {
-      const res = await rejectProduct(id)
+      const res = await rejectProduct(id, rejectionReason.trim())
       if (res.success) {
         toast.success('Product rejected successfully')
         fetchProducts(currentPage, searchTerm)
         if (refreshStats) refreshStats()
       }
     } catch (error) {
-      toast.error('Failed to reject product')
+      toast.error(error?.message || 'Failed to reject product')
     }
   }
 

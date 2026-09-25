@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5006/api',
 });
 
 // Add token interceptor
@@ -348,6 +348,15 @@ export const updateVendorRegistrationDetails = async (updateData) => {
 export const getActiveCitiesApi = async () => {
   try {
     const response = await api.get('/cities/active');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const getVendorAnalyticsReports = async () => {
+  try {
+    const response = await api.get('/vendors/analytics/reports');
     return response.data;
   } catch (error) {
     throw error.response?.data || error.message;

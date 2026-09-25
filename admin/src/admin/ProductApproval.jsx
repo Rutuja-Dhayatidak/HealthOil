@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, Search, CheckCircle, XCircle, Mail } from 'lucide-react'
+import { Package, Search, CheckCircle, XCircle, Mail, X, Loader2 } from 'lucide-react'
 import { getAllProducts, approveProduct, rejectProduct } from '../ApiServices/adminService'
 import toast from 'react-hot-toast'
 import ProductDetailsDrawer from './ProductDetailsDrawer'
@@ -25,7 +25,7 @@ const getProductImageUrl = (product) => {
     return rawUrl
   }
   const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
-  return `http://localhost:5000${cleanPath}`
+  return `http://localhost:5006${cleanPath}`
 }
 
 function ProductApproval({ refreshStats }) {
@@ -35,12 +35,19 @@ function ProductApproval({ refreshStats }) {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
+  // Rejection Modal state
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
+  const [rejectingProduct, setRejectingProduct] = useState(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejectError, setRejectError] = useState('')
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false)
+
   const fetchProducts = async () => {
     try {
       setLoading(true)
       const res = await getAllProducts()
       if (res.success) {
-        // Filter only pending products
+        // Filter pending products
         const pendingProducts = res.products.filter(p => p.status === 'PENDING_APPROVAL')
         setProductsList(pendingProducts)
       }
@@ -60,7 +67,12 @@ function ProductApproval({ refreshStats }) {
       const res = await approveProduct(id)
       if (res.success) {
         toast.success('Product approved successfully')
-        fetchProducts()
+        // Optimistic state update without full page refresh
+        setProductsList(prev => prev.filter(p => p._id !== id))
+        if (selectedProduct?._id === id) {
+          setIsDrawerOpen(false)
+          setSelectedProduct(null)
+        }
         if (refreshStats) refreshStats()
       }
     } catch (error) {
@@ -68,16 +80,39 @@ function ProductApproval({ refreshStats }) {
     }
   }
 
-  const handleReject = async (id) => {
+  const handleOpenRejectModal = (product) => {
+    setRejectingProduct(product)
+    setRejectionReason('')
+    setRejectError('')
+    setIsRejectModalOpen(true)
+  }
+
+  const handleConfirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      setRejectError('Rejection reason is required')
+      return
+    }
+
     try {
-      const res = await rejectProduct(id)
+      setIsSubmittingReject(true)
+      const res = await rejectProduct(rejectingProduct._id, rejectionReason.trim())
       if (res.success) {
         toast.success('Product rejected successfully')
-        fetchProducts()
+        // Optimistic state update without full page refresh
+        setProductsList(prev => prev.filter(p => p._id !== rejectingProduct._id))
+        if (selectedProduct?._id === rejectingProduct._id) {
+          setIsDrawerOpen(false)
+          setSelectedProduct(null)
+        }
+        setIsRejectModalOpen(false)
+        setRejectingProduct(null)
+        setRejectionReason('')
         if (refreshStats) refreshStats()
       }
     } catch (error) {
-      toast.error('Failed to reject product')
+      toast.error(error.message || 'Failed to reject product')
+    } finally {
+      setIsSubmittingReject(false)
     }
   }
 
@@ -204,7 +239,7 @@ function ProductApproval({ refreshStats }) {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => handleReject(product._id)}
+                            onClick={() => handleOpenRejectModal(product)}
                             className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white rounded-lg transition-all duration-200 cursor-pointer border border-rose-100"
                             title="Reject Product"
                           >
@@ -221,17 +256,78 @@ function ProductApproval({ refreshStats }) {
         </div>
       </div>
 
+      {/* Mandatory Rejection Reason Modal */}
+      {isRejectModalOpen && rejectingProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4 border border-gray-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-base font-bold text-gray-900">
+                Reject Product: {rejectingProduct.basicDetails?.name}
+              </h3>
+              <button
+                onClick={() => setIsRejectModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {rejectError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs font-medium rounded-lg">
+                {rejectError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Reason for Rejection <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => {
+                  setRejectionReason(e.target.value)
+                  if (e.target.value.trim()) setRejectError('')
+                }}
+                placeholder="Enter mandatory reason for rejecting this product..."
+                rows={4}
+                className="w-full p-3 text-xs border border-gray-300 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-800"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsRejectModalOpen(false)}
+                disabled={isSubmittingReject}
+                className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isSubmittingReject}
+                className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-60 cursor-pointer shadow-xs"
+              >
+                {isSubmittingReject && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Details Review Drawer */}
       <ProductDetailsDrawer 
         isOpen={isDrawerOpen} 
         onClose={() => setIsDrawerOpen(false)} 
         product={selectedProduct} 
         onApprove={() => {
-          handleApprove(selectedProduct._id)
-          setIsDrawerOpen(false)
+          if (selectedProduct) handleApprove(selectedProduct._id)
         }}
         onReject={() => {
-          handleReject(selectedProduct._id)
-          setIsDrawerOpen(false)
+          if (selectedProduct) handleOpenRejectModal(selectedProduct)
         }}
       />
     </div>

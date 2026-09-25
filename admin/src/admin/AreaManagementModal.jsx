@@ -73,13 +73,21 @@ function AreaManagementModal({ isOpen, onClose, city, onCityUpdated }) {
       return
     }
 
+    const cleanPin = pincode.trim()
+    if (!cleanPin || !/^\d{6}$/.test(cleanPin)) {
+      const errMsg = 'Please enter a valid 6-digit pincode.'
+      setError(errMsg)
+      toast.error(errMsg)
+      return
+    }
+
     try {
       setIsLoading(true)
       setError('')
 
       const payload = {
         name: areaName.trim(),
-        pincode: pincode.trim(),
+        pincode: cleanPin,
         displayOrder: displayOrder === '' ? 0 : Number(displayOrder),
         isActive
       }
@@ -243,14 +251,34 @@ function AreaManagementModal({ isOpen, onClose, city, onCityUpdated }) {
                 {/* Pincode */}
                 <div className="sm:col-span-3">
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    Pincode
+                    Pincode <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
+                    maxLength={6}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 6)
+                      setPincode(digitsOnly)
+                      if (digitsOnly.length > 0 && digitsOnly.length !== 6) {
+                        setError('Please enter a valid 6-digit pincode.')
+                      } else {
+                        setError('')
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      // Allow navigation & edit keys
+                      if (['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+                      if (e.ctrlKey || e.metaKey) return
+                      // Block any non-numeric key press
+                      if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault()
+                      }
+                    }}
                     placeholder="e.g. 411045"
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white text-gray-800"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-white text-gray-800 font-mono"
+                    required
                   />
                 </div>
 

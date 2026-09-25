@@ -7,7 +7,12 @@ const registerVendor = async (req, res) => {
   try {
     const { fullName, email, mobile, password } = req.body;
     
-    let vendor = await Vendor.findOne({ $or: [{ email }, { mobile }] });
+    const cleanMobile = mobile ? String(mobile).trim() : '';
+    if (!cleanMobile || !/^\d{10}$/.test(cleanMobile)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+    }
+
+    let vendor = await Vendor.findOne({ $or: [{ email }, { mobile: cleanMobile }] });
     if (vendor) {
       return res.status(400).json({ success: false, message: 'Vendor with email or mobile already exists' });
     }
@@ -17,7 +22,7 @@ const registerVendor = async (req, res) => {
     vendor = new Vendor({
       fullName,
       email,
-      mobile,
+      mobile: cleanMobile,
       password: hashedPassword,
       onboardingStatus: 'CONTACT_VERIFICATION_PENDING'
     });
@@ -163,11 +168,15 @@ const updateVendorRegistrationDetails = async (req, res) => {
     }
 
     if (mobile && mobile !== vendor.mobile) {
-      const existingMobile = await Vendor.findOne({ mobile, _id: { $ne: vendor._id } });
+      const cleanMobile = String(mobile).trim();
+      if (!/^\d{10}$/.test(cleanMobile)) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+      }
+      const existingMobile = await Vendor.findOne({ mobile: cleanMobile, _id: { $ne: vendor._id } });
       if (existingMobile) {
         return res.status(400).json({ success: false, message: 'Mobile is already registered by another vendor' });
       }
-      vendor.mobile = mobile;
+      vendor.mobile = cleanMobile;
     }
 
     if (fullName) vendor.fullName = fullName;
@@ -186,6 +195,11 @@ const updateVendorRegistrationDetails = async (req, res) => {
 
     // Update bank details
     if (bank) {
+      const { accountNumber, confirmAccount, confirmAccountNumber } = bank;
+      const confirm = confirmAccount !== undefined ? confirmAccount : confirmAccountNumber;
+      if (confirm !== undefined && accountNumber !== confirm) {
+        return res.status(400).json({ success: false, message: 'Account Number and Confirm Account Number do not match.' });
+      }
       vendor.bank = {
         ...vendor.bank?.toObject?.() || vendor.bank || {},
         ...bank

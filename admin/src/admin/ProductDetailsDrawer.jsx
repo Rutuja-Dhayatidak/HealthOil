@@ -80,14 +80,15 @@ export default function ProductDetailsDrawer({ isOpen, onClose, product }) {
               <div className="w-12 h-12 rounded-xl bg-[#FAF4E8] border border-[#b89547]/30 flex items-center justify-center shrink-0 text-[#031d13]">
                 <Package className="w-6 h-6" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="font-bold text-lg leading-tight">{product.basicDetails?.name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${product.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' :
-                      product.status === 'REJECTED' ? 'bg-rose-500/10 text-rose-600' :
-                        'bg-yellow-500/10 text-yellow-600'
-                    }`}>
-                    {product.status === 'PENDING_APPROVAL' ? 'PENDING' : product.status}
+                <div className="flex items-center flex-wrap gap-2 mt-1">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                    product.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                    product.status === 'REJECTED' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                    'bg-amber-100 text-amber-700 border border-amber-200'
+                  }`}>
+                    {product.status === 'PENDING_APPROVAL' ? 'PENDING APPROVAL' : product.status}
                   </span>
                   <span className="text-xs font-semibold text-[#b89547]">
                     {product.vendor?.business?.storeName || product.vendor?.fullName}
@@ -100,6 +101,24 @@ export default function ProductDetailsDrawer({ isOpen, onClose, product }) {
                 </div>
               </div>
             </div>
+
+            {/* Rejection Details Banner if REJECTED */}
+            {product.status === 'REJECTED' && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                  <span>Product Rejection Details</span>
+                </div>
+                <p className="text-rose-800 font-medium leading-relaxed">
+                  <strong>Rejection Reason:</strong> {product.rejectionReason || 'No specific reason provided.'}
+                </p>
+                {product.rejectedAt && (
+                  <p className="text-[10px] text-rose-500 font-semibold pt-0.5">
+                    Rejected Date: {new Date(product.rejectedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Product Images */}
             {(product.images?.mainImage || (product.images?.gallery && product.images?.gallery.length > 0)) && (

@@ -99,9 +99,21 @@ const vendorSchema = new mongoose.Schema({
 
   submittedAt: Date,
   approvedAt: Date,
-  lastLoginAt: Date
+  suspendedAt: Date,
+  lastLoginAt: Date,
+
+  communicationHistory: [{
+    type: { type: String, enum: ['EMAIL', 'WHATSAPP'] },
+    subject: String,
+    message: String,
+    sentTo: String,
+    sentAt: { type: Date, default: Date.now },
+    status: { type: String, default: 'SENT' }
+  }]
 }, {
   timestamps: true
 });
+
+
 
 module.exports = mongoose.model('Vendor', vendorSchema);

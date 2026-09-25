@@ -28,6 +28,7 @@ import {
 } from '../ApiServices/cityService'
 import CityModal from './CityModal'
 import AreaManagementModal from './AreaManagementModal'
+import StateModal from './StateModal'
 
 function CityManagement() {
   const [cities, setCities] = useState([])
@@ -36,6 +37,9 @@ function CityManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [stats, setStats] = useState({ total: 0, active: 0 })
   const [expandedRows, setExpandedRows] = useState({})
+
+  // State Modal state
+  const [isStateModalOpen, setIsStateModalOpen] = useState(false)
 
   // City Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -131,6 +135,23 @@ function CityManagement() {
     }
   }
 
+  const handleSaveState = async (formData) => {
+    try {
+      setIsSaving(true)
+      const res = await createCityApi(formData)
+      if (res?.success) {
+        toast.success(`State "${res.city.state}" and city "${res.city.name}" added successfully!`)
+        setIsStateModalOpen(false)
+        fetchCities()
+      }
+    } catch (error) {
+      console.error('Save state error:', error)
+      toast.error(error.message || 'Failed to save state')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleToggleStatus = async (id, currentStatus) => {
     try {
       const res = await toggleCityStatusApi(id)
@@ -176,13 +197,23 @@ function CityManagement() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Add City</span>
-        </button>
+        <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setIsStateModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add State</span>
+          </button>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add City</span>
+          </button>
+        </div>
       </div>
 
       {/* Counter & Search Bar */}
@@ -477,6 +508,14 @@ function CityManagement() {
           </table>
         </div>
       </div>
+
+      {/* Add State Modal */}
+      <StateModal
+        isOpen={isStateModalOpen}
+        onClose={() => setIsStateModalOpen(false)}
+        onSave={handleSaveState}
+        isLoading={isSaving}
+      />
 
       {/* Add / Edit City Modal */}
       <CityModal

@@ -15,25 +15,30 @@ const sendOtp = async (req, res) => {
     const { email, platform = 'website' } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
+    const cleanEmail = email.trim().toLowerCase();
     const Model = getModel(platform);
 
     // Check if user already exists
-    const existingUser = await Model.findOne({ email });
+    const existingUser = await Model.findOne({ email: cleanEmail });
     if (existingUser) return res.status(400).json({ success: false, message: 'User already exists' });
 
     const otpCode = generateOtp();
     
     // Save or update OTP
     await Otp.findOneAndUpdate(
-      { email },
-      { otp: otpCode, createdAt: Date.now() },
-      { upsert: true, new: true }
+      { email: cleanEmail },
+      { otp: otpCode, createdAt: new Date() },
+      { upsert: true, returnDocument: 'after' }
     );
 
-    // Send OTP email
-    await sendEmail(email, 'Your HealthOil Verification Code', `Your OTP is ${otpCode}. It is valid for 5 minutes.`);
+    console.log(`\n==============================================`);
+    console.log(`🔑 GENERATED OTP for [ ${cleanEmail} ]: >>> ${otpCode} <<<`);
+    console.log(`==============================================\n`);
 
-    res.json({ success: true, message: 'OTP sent successfully to email' });
+    // Send OTP email
+    await sendEmail(cleanEmail, 'Your HealthOil Verification Code', `Your OTP is ${otpCode}. It is valid for 5 minutes.`);
+
+    res.json({ success: true, message: 'OTP sent successfully to email', devOtp: otpCode });
   } catch (error) {
     console.error('Send OTP error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -48,16 +53,18 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
     const Model = getModel(platform);
 
     // Verify OTP
-    const validOtp = await Otp.findOne({ email, otp });
+    const validOtp = await Otp.findOne({ email: cleanEmail, otp: cleanOtp });
     if (!validOtp) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
 
     // Check again if user exists
-    const existingUser = await Model.findOne({ email });
+    const existingUser = await Model.findOne({ email: cleanEmail });
     if (existingUser) return res.status(400).json({ success: false, message: 'User already exists' });
 
     // Hash password
@@ -67,7 +74,7 @@ const registerUser = async (req, res) => {
     // Create user
     const newUser = new Model({
       name,
-      email,
+      email: cleanEmail,
       phone,
       password: hashedPassword
     });
@@ -75,7 +82,7 @@ const registerUser = async (req, res) => {
     await newUser.save();
 
     // Delete used OTP
-    await Otp.deleteOne({ email });
+    await Otp.deleteOne({ email: cleanEmail });
 
     // Generate JWT
     const token = jwt.sign(
@@ -107,23 +114,35 @@ const sendForgotPasswordOtp = async (req, res) => {
     const { email, platform = 'website' } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
+    const cleanEmail = email.trim().toLowerCase();
     const Model = getModel(platform);
 
     // Check if user exists
-    const existingUser = await Model.findOne({ email });
+    const existingUser = await Model.findOne({ email: cleanEmail });
     if (!existingUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (existingUser.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended. Please contact the administrator.'
+      });
+    }
 
     const otpCode = generateOtp();
     
     await Otp.findOneAndUpdate(
-      { email },
-      { otp: otpCode, createdAt: Date.now() },
-      { upsert: true, new: true }
+      { email: cleanEmail },
+      { otp: otpCode, createdAt: new Date() },
+      { upsert: true, returnDocument: 'after' }
     );
 
-    await sendEmail(email, 'Password Reset Code', `Your password reset OTP is ${otpCode}. It is valid for 5 minutes.`);
+    console.log(`\n==============================================`);
+    console.log(`🔑 FORGOT PASSWORD OTP for [ ${cleanEmail} ]: >>> ${otpCode} <<<`);
+    console.log(`==============================================\n`);
 
-    res.json({ success: true, message: 'OTP sent successfully to email' });
+    await sendEmail(cleanEmail, 'Password Reset Code', `Your password reset OTP is ${otpCode}. It is valid for 5 minutes.`);
+
+    res.json({ success: true, message: 'OTP sent successfully to email', devOtp: otpCode });
   } catch (error) {
     console.error('Forgot password OTP error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -138,10 +157,12 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
     const Model = getModel(platform);
 
     // Verify OTP
-    const validOtp = await Otp.findOne({ email, otp });
+    const validOtp = await Otp.findOne({ email: cleanEmail, otp: cleanOtp });
     if (!validOtp) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
@@ -151,10 +172,10 @@ const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     // Update password
-    await Model.findOneAndUpdate({ email }, { password: hashedPassword });
+    await Model.findOneAndUpdate({ email: cleanEmail }, { password: hashedPassword });
 
     // Delete used OTP
-    await Otp.deleteOne({ email });
+    await Otp.deleteOne({ email: cleanEmail });
 
     res.json({ success: true, message: 'Password reset successfully' });
 
@@ -164,15 +185,23 @@ const resetPassword = async (req, res) => {
   }
 };
 
+
 const getUserProfile = async (req, res) => {
   try {
     const Model = getModel(req.user.platform);
     const user = await Model.findById(req.user._id).select('-password');
-    if (user) {
-      res.json({ success: true, user });
-    } else {
-      res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
+    
+    if (user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended. Please contact the administrator.'
+      });
+    }
+
+    res.json({ success: true, user });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -185,7 +214,18 @@ const loginUser = async (req, res) => {
     const Model = getModel(platform);
     const user = await Model.findOne({ email });
 
-    if (user && (await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    if (user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended. Please contact the administrator.'
+      });
+    }
+
+    if (await bcrypt.compare(password, user.password)) {
       res.json({
         success: true,
         token: jwt.sign(
@@ -193,7 +233,7 @@ const loginUser = async (req, res) => {
           process.env.JWT_SECRET || 'secret', 
           { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         ),
-        user: { id: user._id, name: user.name, email: user.email, phone: user.phone }
+        user: { id: user._id, name: user.name, email: user.email, phone: user.phone, status: user.status }
       });
     } else {
       res.status(401).json({ success: false, message: 'Invalid email or password' });
@@ -205,3 +245,4 @@ const loginUser = async (req, res) => {
 };
 
 module.exports = { sendOtp, registerUser, sendForgotPasswordOtp, resetPassword, getUserProfile, loginUser };
+

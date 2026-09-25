@@ -26,7 +26,13 @@ import {
 import { getPendingVendors, getAllProducts } from '../ApiServices/adminService'
 import { getCityVendorDistributionApi } from '../ApiServices/cityService'
 
-export default function Dashboard({ stats = {} }) {
+export default function Dashboard({ 
+  stats = {}, 
+  salesRange = 'this_week', 
+  setSalesRange, 
+  loadingSales = false, 
+  refreshStats 
+}) {
   const navigate = useNavigate()
   const totalSales = stats.sales || 0;
   const totalOrders = stats.orders || 0;
@@ -34,6 +40,53 @@ export default function Dashboard({ stats = {} }) {
   const totalCustomers = stats.customers || 0;
   const pendingApprovals = (stats.productApproval || 0) + (stats.vendorVerification || 0);
   const refundRequests = stats.returns || 0;
+
+  // Filter & Sales Overview State
+  const [salesFilterOpen, setSalesFilterOpen] = useState(false)
+
+  const filterOptions = [
+    { key: 'this_week', label: 'This Week' },
+    { key: 'today', label: 'Today' },
+    { key: 'this_month', label: 'This Month' },
+    { key: 'this_year', label: 'This Year' },
+    { key: 'all', label: 'All Time' }
+  ]
+
+  const getCurrentWeekLabel = () => {
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMon = (day === 0 ? -6 : 1 - day)
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + diffToMon)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    
+    const monStr = monday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+    const sunStr = sunday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+    return `${monStr} - ${sunStr}`
+  }
+
+  const defaultWeekData = (() => {
+    const now = new Date()
+    const day = now.getDay()
+    const diffToMon = (day === 0 ? -6 : 1 - day)
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + diffToMon)
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      return {
+        day: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        sales: 0,
+        orders: 0
+      }
+    })
+  })()
+
+  const salesData = (stats.salesOverview && stats.salesOverview.length > 0) 
+    ? stats.salesOverview 
+    : defaultWeekData
 
   // Dynamic data states
   const [pendingVendorsList, setPendingVendorsList] = useState([])
@@ -131,16 +184,6 @@ export default function Dashboard({ stats = {} }) {
   if (dynamicAlerts.length === 0) {
     dynamicAlerts.push({ type: 'info', msg: 'No alerts right now. Everything looks good!' })
   }
-
-  const salesData = [
-    { day: '11 May', sales: 200, orders: 40 },
-    { day: '12 May', sales: 400, orders: 30 },
-    { day: '13 May', sales: 600, orders: 70 },
-    { day: '14 May', sales: 400, orders: 50 },
-    { day: '15 May', sales: 350, orders: 45 },
-    { day: '16 May', sales: 500, orders: 65 },
-    { day: '17 May', sales: 700, orders: 80 },
-  ]
 
   const recentOrders = (stats.recentOrders || []).map(order => ({
     id: order.orderId || order._id,
@@ -323,18 +366,76 @@ export default function Dashboard({ stats = {} }) {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         
         {/* Sales Overview */}
-        <div className="xl:col-span-5 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-gray-800">Sales Overview</h3>
-            <button className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 hover:bg-gray-50">
-              This Week <ChevronDown className="w-3 h-3" />
-            </button>
+        <div className="xl:col-span-5 bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="font-bold text-gray-800">Sales Overview</h3>
+              <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                {salesRange === 'this_week' ? `Current Week (${getCurrentWeekLabel()})` : 
+                 salesRange === 'today' ? 'Today (24-Hour Breakdown)' : 
+                 salesRange === 'this_month' ? 'This Month Breakdown' : 
+                 salesRange === 'this_year' ? 'This Year Analytics' : 'Lifetime Sales Data'}
+              </p>
+            </div>
+
+            {/* Dropdown Filter */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSalesFilterOpen(!salesFilterOpen)}
+                className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  salesRange === 'this_week' 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' 
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                <span>{filterOptions.find(o => o.key === salesRange)?.label || 'This Week'}</span>
+                {loadingSales ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                ) : (
+                  <ChevronDown className={`w-3 h-3 transition-transform ${salesFilterOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {salesFilterOpen && (
+                <div className="absolute right-0 top-10 w-44 bg-white border border-gray-200 rounded-xl shadow-xl py-1 z-30 font-medium text-xs text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                  {filterOptions.map((opt) => {
+                    const isSelected = salesRange === opt.key
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          if (setSalesRange) setSalesRange(opt.key)
+                          if (refreshStats) refreshStats(opt.key)
+                          setSalesFilterOpen(false)
+                        }}
+                        className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isSelected && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
+
           <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-end mb-4 gap-4">
             <div>
-              <p className="text-[10px] text-gray-400 font-medium mb-1">Total Sales</p>
+              <p className="text-[10px] text-gray-400 font-medium mb-1">
+                {salesRange === 'all' ? 'Lifetime Sales' : 'Total Period Sales'}
+              </p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 leading-none">₹{totalSales.toLocaleString('en-IN')}</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 leading-none">
+                  ₹{totalSales.toLocaleString('en-IN')}
+                </h2>
+                <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                  {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-bold">
@@ -342,20 +443,33 @@ export default function Dashboard({ stats = {} }) {
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 bg-blue-100 block"></span> <span className="text-gray-500">Orders</span></div>
             </div>
           </div>
-          <div className="h-64 w-full">
+
+          <div className="h-64 w-full relative">
+            {loadingSales && (
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center z-10 gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                <span className="text-xs font-semibold text-gray-600">Updating sales overview...</span>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={salesData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSalesAdmin" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
-                <Tooltip />
-                <Area type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorSalesAdmin)" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', borderColor: '#e5e7eb', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                  formatter={(value, name) => [
+                    name === 'sales' ? `₹${value.toLocaleString('en-IN')}` : value,
+                    name === 'sales' ? 'Sales Revenue' : 'Orders Count'
+                  ]}
+                />
+                <Area type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSalesAdmin)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -513,7 +627,7 @@ export default function Dashboard({ stats = {} }) {
                           let rawUrl = typeof img === 'string' ? img : (img?.url || img?.fileLocation || img?.secure_url || '')
                           if (rawUrl && !rawUrl.startsWith('http') && !rawUrl.startsWith('data:') && !rawUrl.startsWith('blob:')) {
                             const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
-                            rawUrl = `http://localhost:5000${cleanPath}`
+                            rawUrl = `http://localhost:5006${cleanPath}`
                           }
                           return rawUrl ? (
                             <img 

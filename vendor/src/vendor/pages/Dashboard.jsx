@@ -36,7 +36,7 @@ export default function Dashboard() {
       try {
         const token = localStorage.getItem('vendorToken');
         if (!token) return;
-        const res = await axios.get('http://localhost:5000/api/vendors/dashboard/stats', {
+        const res = await axios.get('http://localhost:5006/api/vendors/dashboard/stats', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success) {
@@ -136,7 +136,7 @@ export default function Dashboard() {
               <h3 className="text-xl font-bold text-gray-800">{stats.pendingOrders}</h3>
             </div>
           </div>
-          <a href="#" className="text-[10px] font-bold text-blue-600 mt-2 hover:underline">View all orders &gt;</a>
+          <button onClick={() => navigate('/vendor/orders')} className="text-[10px] font-bold text-blue-600 mt-2 hover:underline text-left cursor-pointer">View all orders &gt;</button>
         </div>
         {/* Card 4 */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
@@ -149,7 +149,7 @@ export default function Dashboard() {
               <h3 className="text-xl font-bold text-gray-800">{stats.lowStock}</h3>
             </div>
           </div>
-          <a href="#" className="text-[10px] font-bold text-orange-600 mt-2 hover:underline">View products &gt;</a>
+          <button onClick={() => navigate('/vendor/inventory')} className="text-[10px] font-bold text-orange-600 mt-2 hover:underline text-left cursor-pointer">View products &gt;</button>
         </div>
         {/* Card 5 */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
@@ -162,7 +162,7 @@ export default function Dashboard() {
               <h3 className="text-xl font-bold text-gray-800">{stats.returns}</h3>
             </div>
           </div>
-          <a href="#" className="text-[10px] font-bold text-blue-600 mt-2 hover:underline">View returns &gt;</a>
+          <button onClick={() => navigate('/vendor/returns')} className="text-[10px] font-bold text-blue-600 mt-2 hover:underline text-left cursor-pointer">View returns &gt;</button>
         </div>
       </div>
 
@@ -289,7 +289,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-800 text-sm">Top Selling Products</h3>
-            <a href="#" className="text-[10px] font-bold text-blue-600 hover:underline">View all</a>
+            <button onClick={() => navigate('/vendor/products')} className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer">View all</button>
           </div>
           <div className="space-y-4 flex-1">
             {topSelling.map((item, idx) => (
@@ -319,7 +319,7 @@ export default function Dashboard() {
           <p className="text-xs text-gray-700 font-medium">Keep your catalogue updated and maintain high performance to grow your business on Helthoil.</p>
         </div>
         <div className="flex items-center gap-4">
-          <a href="#" className="text-xs font-bold text-blue-600 hover:underline">Learn more &gt;</a>
+          <button onClick={() => navigate('/vendor/support')} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">Learn more &gt;</button>
           <div className="text-3xl rotate-45">🌿</div>
         </div>
       </div>

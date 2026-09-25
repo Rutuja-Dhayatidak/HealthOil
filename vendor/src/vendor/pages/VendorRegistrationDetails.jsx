@@ -61,6 +61,7 @@ export default function VendorRegistrationDetails() {
       accountHolderName: '',
       bankName: '',
       accountNumber: '',
+      confirmAccount: '',
       ifscCode: '',
       accountType: 'Current'
     },
@@ -140,6 +141,7 @@ export default function VendorRegistrationDetails() {
             accountHolderName: v.bank?.accountHolderName || '',
             bankName: v.bank?.bankName || '',
             accountNumber: v.bank?.accountNumber || '',
+            confirmAccount: v.bank?.accountNumber || '',
             ifscCode: v.bank?.ifscCode || '',
             accountType: v.bank?.accountType || 'Current'
           },
@@ -170,6 +172,9 @@ export default function VendorRegistrationDetails() {
 
   // Nested form change handlers
   const handleBasicChange = (field, val) => {
+    if (field === 'mobile') {
+      val = val.replace(/\D/g, '').slice(0, 10)
+    }
     setFormData(prev => ({ ...prev, [field]: val }))
   }
 
@@ -198,6 +203,9 @@ export default function VendorRegistrationDetails() {
   }
 
   const handlePickupChange = (field, val) => {
+    if (field === 'mobile') {
+      val = val.replace(/\D/g, '').slice(0, 10)
+    }
     setFormData(prev => ({
       ...prev,
       pickupAddress: { ...prev.pickupAddress, [field]: val }
@@ -228,7 +236,12 @@ export default function VendorRegistrationDetails() {
     e?.preventDefault()
     if (!formData.fullName.trim()) return toast.error('Owner Name is required')
     if (!formData.email.trim()) return toast.error('Email is required')
-    if (!formData.mobile.trim()) return toast.error('Mobile number is required')
+    if (!formData.mobile.trim() || !/^\d{10}$/.test(formData.mobile.trim())) {
+      return toast.error('Please enter a valid 10-digit mobile number.')
+    }
+    if (formData.bank.accountNumber && formData.bank.confirmAccount && formData.bank.accountNumber !== formData.bank.confirmAccount) {
+      return toast.error('Account Number and Confirm Account Number do not match.')
+    }
 
     try {
       setSaving(true)
@@ -856,6 +869,35 @@ export default function VendorRegistrationDetails() {
                         placeholder="50200012345678"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 outline-none focus:border-blue-500"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Confirm Account Number <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.bank.confirmAccount}
+                        onChange={(e) => handleBankChange('confirmAccount', e.target.value)}
+                        placeholder="50200012345678"
+                        className={`w-full bg-white border rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 outline-none focus:border-blue-500 ${
+                          formData.bank.confirmAccount && formData.bank.accountNumber !== formData.bank.confirmAccount
+                            ? 'border-rose-400 bg-rose-50/20'
+                            : formData.bank.confirmAccount && formData.bank.accountNumber === formData.bank.confirmAccount
+                            ? 'border-emerald-500 bg-emerald-50/20'
+                            : 'border-slate-200'
+                        }`}
+                      />
+                      {formData.bank.confirmAccount && formData.bank.accountNumber !== formData.bank.confirmAccount && (
+                        <p className="text-rose-500 text-[11px] font-medium mt-1">
+                          Account Number and Confirm Account Number do not match.
+                        </p>
+                      )}
+                      {formData.bank.confirmAccount && formData.bank.accountNumber === formData.bank.confirmAccount && formData.bank.accountNumber.length > 0 && (
+                        <p className="text-emerald-600 text-[11px] font-medium mt-1">
+                          ✓ Account numbers match
+                        </p>
+                      )}
                     </div>
 
                     <div>

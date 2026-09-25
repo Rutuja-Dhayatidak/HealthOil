@@ -38,13 +38,16 @@ export default function Shop() {
       const res = await getStoreProfile()
       if (res.success && res.data) {
         const d = res.data
+        const persistentLogo = d.storeProfile?.logo || d.business?.logo || ''
+        const persistentBanner = d.storeProfile?.banner || ''
+
         setFormData({
           storeName: d.business?.storeName || '',
           description: d.storeProfile?.description || '',
           businessCategory: d.storeProfile?.businessCategory || '',
           vendorStatus: d.vendorStatus || 'ACTIVE',
-          logo: d.storeProfile?.logo || '',
-          banner: d.storeProfile?.banner || '',
+          logo: persistentLogo,
+          banner: persistentBanner,
           openTime: d.storeProfile?.openTime || d.openTime || '',
           closeTime: d.storeProfile?.closeTime || d.closeTime || '',
           operatingDays: d.operatingDays || d.storeProfile?.operatingDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
@@ -57,6 +60,10 @@ export default function Shop() {
           pickupAddress: d.pickupAddress || { contactName: '', mobile: '', addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: '' },
           mobile: d.mobile || d.business?.businessPhone || ''
         })
+
+        // Reset temporary local file reader state so database logo is rendered
+        setPreviewLogo(null)
+        setPreviewBanner(null)
       }
     } catch (error) {
       toast.error(error.message || 'Failed to fetch store profile')
@@ -78,7 +85,7 @@ export default function Shop() {
     const file = e.target.files[0]
     if (!file) return
 
-    // Preview
+    // Show instant local preview while uploading
     const reader = new FileReader()
     reader.onload = () => {
       if (type === 'logo') setPreviewLogo(reader.result)
@@ -91,14 +98,20 @@ export default function Shop() {
       const fd = new FormData()
       fd.append(type, file)
       const res = await uploadStoreImages(fd)
-      if (res.success) {
-        toast.success(`${type} uploaded successfully`)
-        if (res.data[type]) {
-          setFormData(prev => ({ ...prev, [type]: res.data[type] }))
+      if (res.success && res.data) {
+        const uploadedUrl = res.data[type] || (type === 'logo' ? res.data.logo : res.data.banner)
+        if (uploadedUrl) {
+          setFormData(prev => ({ ...prev, [type]: uploadedUrl }))
+          if (type === 'logo') setPreviewLogo(uploadedUrl)
+          if (type === 'banner') setPreviewBanner(uploadedUrl)
         }
+        toast.success(`${type === 'logo' ? 'Store logo' : 'Banner'} uploaded and saved permanently!`)
+      } else {
+        toast.error(res.message || `Failed to upload ${type}`)
       }
     } catch (error) {
-      toast.error(error.message || `Failed to upload ${type}`);
+      console.error(`Failed to upload ${type}:`, error)
+      toast.error(error.message || `Failed to upload ${type}`)
     } finally {
       setImageUploading(false)
     }
@@ -117,10 +130,27 @@ export default function Shop() {
         operatingDays: formData.operatingDays,
         address: formData.address,
         pickupAddress: formData.pickupAddress,
-        socialLinks: formData.socialLinks
+        socialLinks: formData.socialLinks,
+        logo: formData.logo,
+        banner: formData.banner
       })
       if (res.success) {
-        toast.success('Store configuration saved successfully')
+        toast.success('Store profile and branding saved successfully!')
+        
+        // Update local vendor data cache if exists
+        try {
+          const vDataStr = localStorage.getItem('vendorData')
+          if (vDataStr) {
+            const vData = JSON.parse(vDataStr)
+            if (!vData.storeProfile) vData.storeProfile = {}
+            if (formData.logo) vData.storeProfile.logo = formData.logo
+            if (formData.banner) vData.storeProfile.banner = formData.banner
+            localStorage.setItem('vendorData', JSON.stringify(vData))
+          }
+        } catch (_) {}
+
+        // Reload fresh state from backend to ensure persistence
+        await fetchProfile()
       }
     } catch (error) {
       toast.error(error.message || 'Failed to save store profile')

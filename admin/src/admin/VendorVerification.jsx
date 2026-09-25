@@ -404,7 +404,7 @@ function VendorVerification({ refreshStats }) {
                     {selectedVendor.documents.map((doc, idx) => {
                       const fileUrl = doc.fileLocation.startsWith('http') 
                         ? doc.fileLocation 
-                        : `http://localhost:5000/${doc.fileLocation.replace(/\\/g, '/')}`
+                        : `http://localhost:5006/${doc.fileLocation.replace(/\\/g, '/')}`
                       
                       return (
                         <div key={idx} className="flex items-center justify-between p-3.5 bg-white border border-gray-200 rounded-xl shadow-xs">

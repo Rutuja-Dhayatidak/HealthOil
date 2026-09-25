@@ -56,14 +56,16 @@ const { getStoreProfile, updateStoreProfile, uploadStoreImages } = require('../c
 // Shop Profile Routes
 router.get('/shop/profile', protectVendor, getStoreProfile);
 router.put('/shop/profile', protectVendor, updateStoreProfile);
-router.post('/shop/profile/images', protectVendor, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), uploadStoreImages);
+router.post('/shop/profile/images', protectVendor, upload.any(), uploadStoreImages);
 
 const { getVendorOrders, updateOrderStatus, getVendorDashboardStats } = require('../controllers/vendorOrderController');
+const { getVendorAnalyticsReports } = require('../controllers/vendorAnalyticsController');
 
-// Vendor Order Routes
+// Vendor Order & Analytics Routes
 router.get('/dashboard/stats', protectVendor, getVendorDashboardStats);
 router.get('/orders', protectVendor, getVendorOrders);
 router.put('/orders/:orderId/status', protectVendor, updateOrderStatus);
+router.get('/analytics/reports', protectVendor, getVendorAnalyticsReports);
 
 const { 
   getVendorOffers, 

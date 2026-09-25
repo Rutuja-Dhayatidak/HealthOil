@@ -1,5 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Image as ImageIcon, Upload, Loader2, Check, Sparkles } from 'lucide-react'
+import { X, Image as ImageIcon, Upload, Loader2, Check, Sparkles, Plus, Edit3 } from 'lucide-react'
+import { getCitiesApi } from '../ApiServices/cityService'
+
+const INDIA_STATES_CITIES = {
+  "Maharashtra": ["Pune", "Mumbai", "Nagpur", "Nashik", "Thane", "Solapur", "Kolhapur", "Amravati", "Pimpri-Chinchwad", "Aurangabad", "Navi Mumbai", "Sangli", "Satara", "Ratnagiri", "Nanded", "Jalgaon", "Akola", "Latur", "Dhule", "Ahmednagar"],
+  "Karnataka": ["Bangalore", "Mysore", "Hubli-Dharwad", "Mangalore", "Belgaum", "Gulbarga", "Davangere", "Bellary", "Shimoga", "Tumkur", "Udupi", "Bidar", "Hassan"],
+  "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Junagadh", "Gandhinagar", "Anand", "Navsari", "Morbi", "Bharuch"],
+  "Delhi": ["Delhi", "New Delhi", "North Delhi", "South Delhi", "East Delhi", "West Delhi", "Central Delhi"],
+  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tiruppur", "Erode", "Vellore", "Tirunelveli", "Thanjavur", "Kanchipuram"],
+  "Telangana": ["Hyderabad", "Warangal", "Nizamabad", "Khammam", "Karimnagar", "Ramagundam", "Mahbubnagar", "Secunderabad"],
+  "Uttar Pradesh": ["Lucknow", "Kanpur", "Ghaziabad", "Agra", "Varanasi", "Meerut", "Noida", "Prayagraj", "Bareilly", "Aligarh", "Moradabad", "Saharanpur", "Gorakhpur", "Jhansi"],
+  "West Bengal": ["Kolkata", "Howrah", "Siliguri", "Durgapur", "Asansol", "Bardhaman", "Malda", "Baharampur", "Habra"],
+  "Rajasthan": ["Jaipur", "Jodhpur", "Kota", "Bikaner", "Ajmer", "Udaipur", "Bhilwara", "Alwar", "Bharatpur", "Sikar"],
+  "Madhya Pradesh": ["Bhopal", "Indore", "Gwalior", "Jabalpur", "Ujjain", "Sagar", "Dewas", "Satna", "Ratlam"],
+  "Kerala": ["Thiruvananthapuram", "Kochi", "Kozhikode", "Kollam", "Thrissur", "Kannur", "Alappuzha", "Kottayam", "Palakkad"],
+  "Punjab": ["Ludhiana", "Amritsar", "Jalandhar", "Patiala", "Bathinda", "Mohali", "Pathankot", "Hoshiarpur"],
+  "Haryana": ["Gurugram", "Faridabad", "Panipat", "Ambala", "Yamunanagar", "Rohtak", "Hisar", "Karnal", "Panchkula"],
+  "Bihar": ["Patna", "Gaya", "Bhagalpur", "Muzaffarpur", "Purnia", "Darbhanga", "Bihar Sharif", "Arrah"],
+  "Goa": ["Panaji", "Margao", "Vasco da Gama", "Mapusa", "Ponda"],
+  "Assam": ["Guwahati", "Silchar", "Dibrugarh", "Jorhat", "Nagaon", "Tinsukia", "Tezpur"],
+  "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela", "Berhampur", "Sambalpur", "Puri", "Balasore"],
+  "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur", "Korba", "Rajnandgaon", "Durg"],
+  "Uttarakhand": ["Dehradun", "Haridwar", "Roorkee", "Haldwani", "Rudraprayag", "Rishikesh"],
+  "Himachal Pradesh": ["Shimla", "Dharamshala", "Mandi", "Solan", "Kullu", "Manali"]
+};
 
 function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
   const [name, setName] = useState('')
@@ -12,15 +36,63 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
+  // Custom typing mode flags
+  const [isCustomState, setIsCustomState] = useState(false)
+  const [isCustomCity, setIsCustomCity] = useState(false)
+
+  // DB auto-loaded state & city lists
+  const [dbStates, setDbStates] = useState([])
+  const [dbCities, setDbCities] = useState([])
+
+  // Fetch DB cities and states on mount
+  useEffect(() => {
+    async function loadDbRecords() {
+      try {
+        const res = await getCitiesApi()
+        if (res?.success && res.cities) {
+          const fetchedStates = Array.from(new Set(res.cities.map(c => c.state).filter(Boolean)))
+          const fetchedCities = res.cities.map(c => ({ name: c.name, state: c.state }))
+          setDbStates(fetchedStates)
+          setDbCities(fetchedCities)
+        }
+      } catch (err) {
+        console.error('Failed to load DB city/state records:', err)
+      }
+    }
+    if (isOpen) {
+      loadDbRecords()
+    }
+  }, [isOpen])
+
+  // Auto-select city & state on edit
   useEffect(() => {
     if (city) {
-      setName(city.name || '')
-      setState(city.state || '')
+      const currentSt = city.state || ''
+      const currentCt = city.name || ''
+      setState(currentSt)
+      setName(currentCt)
       setDisplayOrder(city.displayOrder !== undefined ? city.displayOrder : 99)
       setIsActive(city.isActive !== undefined ? city.isActive : true)
       setExistingImageUrl(city.image || '')
       setPreviewUrl(city.image || '')
       setImageFile(null)
+
+      // If existing state is not in standard list, enable custom input mode
+      const allKnownStates = [...Object.keys(INDIA_STATES_CITIES), ...dbStates]
+      if (currentSt && !allKnownStates.includes(currentSt)) {
+        setIsCustomState(true)
+      } else {
+        setIsCustomState(false)
+      }
+
+      // Check if city is custom
+      const currentAvailableCities = currentSt && INDIA_STATES_CITIES[currentSt] ? INDIA_STATES_CITIES[currentSt] : []
+      if (currentCt && !currentAvailableCities.includes(currentCt)) {
+        setIsCustomCity(true)
+      } else {
+        setIsCustomCity(false)
+      }
+
     } else {
       setName('')
       setState('')
@@ -29,11 +101,25 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
       setExistingImageUrl('')
       setPreviewUrl('')
       setImageFile(null)
+      setIsCustomState(false)
+      setIsCustomCity(false)
     }
     setError('')
-  }, [city, isOpen])
+  }, [city, isOpen, dbStates])
 
   if (!isOpen) return null
+
+  // Compute available states list (merged presets + DB states)
+  const allStates = Array.from(new Set([
+    ...Object.keys(INDIA_STATES_CITIES),
+    ...dbStates
+  ])).sort()
+
+  // Compute available cities list based on selected state
+  const availableCitiesForState = Array.from(new Set([
+    ...(state && INDIA_STATES_CITIES[state] ? INDIA_STATES_CITIES[state] : []),
+    ...dbCities.filter(c => !state || c.state?.toLowerCase() === state.toLowerCase()).map(c => c.name)
+  ])).sort()
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
@@ -64,8 +150,12 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (!state.trim()) {
+      setError('Please select or enter a State')
+      return
+    }
     if (!name.trim()) {
-      setError('City Name is required')
+      setError('Please select or enter a City Name')
       return
     }
 
@@ -124,33 +214,124 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
             </div>
           )}
 
-          {/* City Name */}
+          {/* State Field (Dropdown or Custom Input) */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1.5">
-              City Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Pune, Mumbai, Bangalore"
-              className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:border-indigo-600 focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 placeholder-gray-400"
-              required
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-gray-700">
+                State <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomState(!isCustomState)
+                  if (!isCustomState) setState('')
+                  setError('')
+                }}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              >
+                {isCustomState ? '← Pick from list' : '+ Add custom State'}
+              </button>
+            </div>
+
+            {isCustomState ? (
+              <input
+                type="text"
+                value={state}
+                onChange={(e) => {
+                  setState(e.target.value)
+                  setError('')
+                }}
+                placeholder="Type custom state name (e.g. Maharashtra, Goa)..."
+                className="w-full px-4 py-2.5 text-sm border border-indigo-400 rounded-xl outline-none focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 bg-white"
+                required
+              />
+            ) : (
+              <select
+                value={state}
+                onChange={(e) => {
+                  if (e.target.value === '__CUSTOM__') {
+                    setIsCustomState(true)
+                    setState('')
+                  } else {
+                    setState(e.target.value)
+                    setError('')
+                  }
+                }}
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:border-indigo-600 focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 bg-white font-medium cursor-pointer"
+                required
+              >
+                <option value="">-- Select State --</option>
+                {allStates.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">➕ Add Custom State Name...</option>
+              </select>
+            )}
           </div>
 
-          {/* State */}
+          {/* City Name Field (Dropdown or Custom Input) */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1.5">
-              State
-            </label>
-            <input
-              type="text"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-              placeholder="e.g. Maharashtra, Karnataka"
-              className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:border-indigo-600 focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 placeholder-gray-400"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-gray-700">
+                City Name <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCity(!isCustomCity)
+                  if (!isCustomCity) setName('')
+                  setError('')
+                }}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              >
+                {isCustomCity ? '← Pick from list' : '+ Add custom City'}
+              </button>
+            </div>
+
+            {isCustomCity ? (
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setError('')
+                }}
+                placeholder="Type custom city name (e.g. Pune, Mumbai)..."
+                className="w-full px-4 py-2.5 text-sm border border-indigo-400 rounded-xl outline-none focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 bg-white"
+                required
+              />
+            ) : (
+              <select
+                value={name}
+                onChange={(e) => {
+                  if (e.target.value === '__CUSTOM__') {
+                    setIsCustomCity(true)
+                    setName('')
+                  } else {
+                    setName(e.target.value)
+                    setError('')
+                  }
+                }}
+                disabled={!state}
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl outline-none focus:border-indigo-600 focus:ring-3 focus:ring-indigo-100 transition-all text-gray-800 bg-white font-medium cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+                required
+              >
+                <option value="">{state ? '-- Select City --' : '-- Select State First --'}</option>
+                {availableCitiesForState.map((ct) => (
+                  <option key={ct} value={ct}>
+                    {ct}
+                  </option>
+                ))}
+                <option value="__CUSTOM__">➕ Add Custom City Name...</option>
+              </select>
+            )}
+            {state && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Selected State: <span className="font-semibold text-gray-700">{state}</span>
+              </p>
+            )}
           </div>
 
           {/* City Cover Image */}
@@ -160,7 +341,6 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
             </label>
             
             <div className="flex items-center gap-4">
-              {/* Image Preview Box */}
               <div 
                 onClick={() => fileInputRef.current?.click()}
                 className="w-16 h-16 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-indigo-400 transition-colors relative group"
@@ -178,7 +358,6 @@ function CityModal({ isOpen, onClose, city, onSave, isLoading }) {
                 )}
               </div>
 
-              {/* File details / input */}
               <div className="flex-1">
                 <input
                   type="file"

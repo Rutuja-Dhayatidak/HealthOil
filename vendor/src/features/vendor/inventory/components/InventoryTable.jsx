@@ -19,7 +19,7 @@ const getProductImageUrl = (img) => {
     return rawUrl
   }
   const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/\\/g, '/')}`
-  return `http://localhost:5000${cleanPath}`
+  return `http://localhost:5006${cleanPath}`
 }
 
 export default function InventoryTable({ rows, filters, onRowClick, onAdjustClick }) {

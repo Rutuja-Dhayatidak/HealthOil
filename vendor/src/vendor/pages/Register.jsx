@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ShieldCheck, Upload, AlertCircle, MapPin, Building, ChevronDown, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ShieldCheck, Upload, AlertCircle, MapPin, Building, ChevronDown, Loader2, Eye, EyeOff } from 'lucide-react'
 import { registerVendor, loginVendor, saveBusinessDetails, uploadVendorDocument, saveBankDetails, submitApplication, getActiveCitiesApi } from '../../ApiServices/vendorAuthService'
 import toast from 'react-hot-toast'
 
@@ -9,6 +9,11 @@ export default function Register() {
   const [step, setStep] = useState(1)
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [mobileTouched, setMobileTouched] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showAccNumber, setShowAccNumber] = useState(false)
+  const [showConfirmAccNumber, setShowConfirmAccNumber] = useState(false)
   
   // Dynamic Cities & Sub-Cities
   const [activeCities, setActiveCities] = useState([])
@@ -49,8 +54,16 @@ export default function Register() {
 
   const handleTextChange = (e) => {
     const { name, value } = e.target
+    if (name === 'mobile') {
+      setMobileTouched(true)
+      const cleanVal = value.replace(/\D/g, '').slice(0, 10)
+      setFormData(prev => ({ ...prev, [name]: cleanVal }))
+      return
+    }
     setFormData(prev => ({ ...prev, [name]: value }))
   }
+
+  const isMobileValid = /^\d{10}$/.test(formData.mobile)
 
   // Handle City Selection -> Auto fills State and loads Sub-cities
   const handleCityChange = (e) => {
@@ -131,6 +144,21 @@ export default function Register() {
   }
 
   const handleNext = () => {
+    if (step === 1) {
+      setMobileTouched(true)
+      if (!isMobileValid) {
+        toast.error("Please enter a valid 10-digit mobile number.")
+        return
+      }
+    }
+    if (step === 5) {
+      if (formData.accountNumber || formData.confirmAccount) {
+        if (formData.accountNumber !== formData.confirmAccount) {
+          toast.error("Account Number and Confirm Account Number do not match.")
+          return
+        }
+      }
+    }
     if (step < 6) setStep(prev => prev + 1)
   }
 
@@ -140,6 +168,14 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isMobileValid) {
+      toast.error("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (formData.accountNumber !== formData.confirmAccount) {
+      toast.error("Account Number and Confirm Account Number do not match.");
+      return;
+    }
     setLoading(true);
     
     try {
@@ -180,7 +216,8 @@ export default function Register() {
         accountHolderName: formData.holderName,
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
-        accountNumberLast4: formData.accountNumber.slice(-4),
+        confirmAccount: formData.confirmAccount,
+        accountNumberLast4: formData.accountNumber ? formData.accountNumber.slice(-4) : '',
         ifscCode: formData.ifscCode,
         accountType: formData.accountType
       });
@@ -243,8 +280,29 @@ export default function Register() {
                 <input type="text" name="ownerName" value={formData.ownerName} onChange={handleTextChange} placeholder="Gopal Das" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
               </div>
               <div>
-                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Mobile Number</label>
-                <input type="text" name="mobile" value={formData.mobile} onChange={handleTextChange} placeholder="+91 98765 43210" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">
+                  Mobile Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleTextChange}
+                  onBlur={() => setMobileTouched(true)}
+                  maxLength={10}
+                  placeholder="9876543210"
+                  className={`w-full bg-[#F8F2E7]/40 border ${
+                    (mobileTouched || formData.mobile.length > 0) && !isMobileValid
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-[#D4AF37]/20 focus:border-[#002F24]'
+                  } rounded-xl px-3.5 py-2.5 text-xs outline-none font-medium`}
+                />
+                {(mobileTouched || formData.mobile.length > 0) && !isMobileValid && (
+                  <p className="text-[10px] text-red-500 mt-1 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                    Please enter a valid 10-digit mobile number.
+                  </p>
+                )}
               </div>
             </div>
             <div>
@@ -254,11 +312,45 @@ export default function Register() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Password</label>
-                <input type="password" name="password" value={formData.password} onChange={handleTextChange} placeholder="••••••••" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleTextChange}
+                    placeholder="••••••••"
+                    className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl pl-3.5 pr-9 py-2.5 text-xs outline-none focus:border-[#002F24]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Confirm Password</label>
-                <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleTextChange} placeholder="••••••••" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleTextChange}
+                    placeholder="••••••••"
+                    className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl pl-3.5 pr-9 py-2.5 text-xs outline-none focus:border-[#002F24]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                    title={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -574,11 +666,59 @@ export default function Register() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 mb-1">Bank Account Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <input type="password" name="accountNumber" value={formData.accountNumber} onChange={handleTextChange} placeholder="••••••••••••" className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <div className="relative">
+                  <input
+                    type={showAccNumber ? 'text' : 'password'}
+                    name="accountNumber"
+                    value={formData.accountNumber}
+                    onChange={handleTextChange}
+                    placeholder="••••••••••••"
+                    className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl pl-3.5 pr-9 py-2.5 text-xs outline-none focus:border-[#002F24]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAccNumber(!showAccNumber)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    {showAccNumber ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-[9px] font-bold text-gray-500 mb-1">Confirm Account Number <span className="font-normal lowercase text-gray-400">(optional)</span></label>
-                <input type="text" name="confirmAccount" value={formData.confirmAccount} onChange={handleTextChange} placeholder="5020100..." className="w-full bg-[#F8F2E7]/40 border border-[#D4AF37]/20 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-[#002F24]" />
+                <div className="relative">
+                  <input
+                    type={showConfirmAccNumber ? 'text' : 'password'}
+                    name="confirmAccount"
+                    value={formData.confirmAccount}
+                    onChange={handleTextChange}
+                    placeholder="••••••••••••"
+                    className={`w-full bg-[#F8F2E7]/40 border rounded-xl pl-3.5 pr-9 py-2.5 text-xs outline-none focus:border-[#002F24] ${
+                      formData.confirmAccount && formData.accountNumber !== formData.confirmAccount
+                        ? 'border-rose-400 focus:border-rose-500 bg-rose-50/20'
+                        : formData.confirmAccount && formData.accountNumber === formData.confirmAccount
+                        ? 'border-emerald-500 focus:border-emerald-600 bg-emerald-50/20'
+                        : 'border-[#D4AF37]/20'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmAccNumber(!showConfirmAccNumber)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    {showConfirmAccNumber ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {formData.confirmAccount && formData.accountNumber !== formData.confirmAccount && (
+                  <p className="text-rose-500 text-[10px] font-semibold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" /> Account Number and Confirm Account Number do not match.
+                  </p>
+                )}
+                {formData.confirmAccount && formData.accountNumber === formData.confirmAccount && formData.accountNumber.length > 0 && (
+                  <p className="text-emerald-600 text-[10px] font-semibold mt-1 flex items-center gap-1">
+                    ✓ Account numbers match
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -638,8 +778,9 @@ export default function Register() {
           {step < 6 ? (
             <button
               type="button"
+              disabled={step === 1 && !isMobileValid}
               onClick={handleNext}
-              className="px-4 py-2.5 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+              className="px-4 py-2.5 bg-[#002F24] hover:bg-[#014D3A] text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Continue
               <ArrowRight className="w-3.5 h-3.5" />
@@ -647,9 +788,9 @@ export default function Register() {
           ) : (
             <button
               type="button"
-              disabled={!agreed || loading}
+              disabled={!agreed || loading || !isMobileValid}
               onClick={handleSubmit}
-              className="px-4 py-2.5 bg-[#16A34A] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-md shadow-[#16A34A]/10"
+              className="px-4 py-2.5 bg-[#16A34A] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-[#16A34A]/10"
             >
               <ShieldCheck className="w-4 h-4" />
               {loading ? 'Submitting...' : 'Submit Registration'}

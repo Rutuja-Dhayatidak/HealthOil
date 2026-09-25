@@ -101,8 +101,12 @@ const createCity = async (req, res) => {
   try {
     const { name, state, displayOrder, isActive, image: bodyImage } = req.body;
 
+    if (!state || !state.trim()) {
+      return res.status(400).json({ success: false, message: 'State selection is required' });
+    }
+
     if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, message: 'City name is required' });
+      return res.status(400).json({ success: false, message: 'City selection is required' });
     }
 
     // Check if city already exists (case-insensitive)
@@ -127,7 +131,7 @@ const createCity = async (req, res) => {
 
     const newCity = new City({
       name: name.trim(),
-      state: (state || '').trim(),
+      state: state.trim(),
       image: imageUrl,
       displayOrder: isNaN(orderNum) ? 0 : orderNum,
       isActive: activeBool,
@@ -158,7 +162,17 @@ const updateCity = async (req, res) => {
       return res.status(404).json({ success: false, message: 'City not found' });
     }
 
-    if (name && name.trim()) {
+    if (state !== undefined) {
+      if (!state.trim()) {
+        return res.status(400).json({ success: false, message: 'State selection is required' });
+      }
+      city.state = state.trim();
+    }
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ success: false, message: 'City selection is required' });
+      }
       const duplicate = await City.findOne({
         _id: { $ne: id },
         name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
@@ -167,10 +181,6 @@ const updateCity = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Another city with this name already exists' });
       }
       city.name = name.trim();
-    }
-
-    if (state !== undefined) {
-      city.state = state.trim();
     }
 
     if (displayOrder !== undefined && displayOrder !== '') {
@@ -260,6 +270,11 @@ const addArea = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Area name is required' });
     }
 
+    const cleanPincode = (pincode || '').trim();
+    if (!cleanPincode || !/^\d{6}$/.test(cleanPincode)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 6-digit pincode.' });
+    }
+
     const city = await City.findById(cityId);
     if (!city) {
       return res.status(404).json({ success: false, message: 'City not found' });
@@ -277,7 +292,7 @@ const addArea = async (req, res) => {
 
     const newArea = {
       name: name.trim(),
-      pincode: (pincode || '').trim(),
+      pincode: cleanPincode,
       displayOrder: isNaN(orderNum) ? 0 : orderNum,
       isActive: activeBool
     };
@@ -322,7 +337,11 @@ const updateArea = async (req, res) => {
     }
 
     if (pincode !== undefined) {
-      area.pincode = pincode.trim();
+      const cleanPincode = pincode.trim();
+      if (!cleanPincode || !/^\d{6}$/.test(cleanPincode)) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid 6-digit pincode.' });
+      }
+      area.pincode = cleanPincode;
     }
 
     if (displayOrder !== undefined && displayOrder !== '') {

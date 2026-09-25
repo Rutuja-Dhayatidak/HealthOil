@@ -18,11 +18,11 @@ function VendorNavbar({ onMenuToggle }) {
         const payload = JSON.parse(atob(token.split('.')[1]))
         const vendorId = payload.id
         
-        const socket = io('http://localhost:5000')
+        const socket = io('http://localhost:5006')
         socket.emit('joinVendorRoom', vendorId)
         
         // Fetch profile
-        axios.get('http://localhost:5000/api/vendors/shop/profile', {
+        axios.get('http://localhost:5006/api/vendors/shop/profile', {
           headers: { Authorization: `Bearer ${token}` }
         }).then(res => {
           if (res.data.success && res.data.data) {
@@ -78,11 +78,11 @@ function VendorNavbar({ onMenuToggle }) {
         
         {/* Notification icon */}
         <button 
-          className="relative text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+          className="relative text-gray-500 hover:text-gray-800 transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
           title="Notifications"
           onClick={() => {
             setNotificationCount(0)
-            navigate('/vendor/orders')
+            navigate('/vendor/notifications')
           }}
         >
           <Bell className="w-5 h-5" />
@@ -95,8 +95,9 @@ function VendorNavbar({ onMenuToggle }) {
 
         {/* Help icon */}
         <button 
-          className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-          title="Help Center"
+          className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
+          title="Help & Support"
+          onClick={() => navigate('/vendor/support')}
         >
           <HelpCircle className="w-5 h-5" />
         </button>

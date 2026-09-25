@@ -15,6 +15,10 @@ export const oilDetailsSchema = z.object({
   refiningType: z.string().min(1, 'Select a refining type'),
   extractionMethod: z.string().min(1, 'Select an extraction method'),
   packagingType: z.string().min(1, 'Select a packaging type'),
+  hexCode: z.string().optional().refine(
+    val => !val || /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(val),
+    { message: 'Enter a valid HEX color code.' }
+  ),
   isOrganic: z.boolean(),
   fssaiLicenseNo: z.string().optional().refine(val => !val || /^[0-9]{14}$/.test(val), 'FSSAI License must be exactly 14 digits'),
   hsnCode: z.string().optional().refine(val => !val || val.length >= 4, 'Valid HSN code required'),
@@ -39,8 +43,14 @@ export const variantsSchema = z.object({
     price: z.coerce.number().min(1, 'Price must be > 0'),
     mrp: z.coerce.number().min(1, 'MRP must be > 0'),
     initialStock: z.coerce.number().min(0, 'Initial stock cannot be negative'),
-    lowStockThreshold: z.coerce.number().min(0)
-  })).min(1, 'At least one variant is required')
+    lowStockThreshold: z.coerce.number().min(0, 'Low stock threshold cannot be negative')
+  }).refine(
+    data => Number(data.lowStockThreshold) <= Number(data.initialStock),
+    {
+      message: 'Low Stock Alert cannot exceed Initial Stock.',
+      path: ['lowStockThreshold']
+    }
+  )).min(1, 'At least one variant is required')
 })
 
 export const imagesSchema = z.object({
