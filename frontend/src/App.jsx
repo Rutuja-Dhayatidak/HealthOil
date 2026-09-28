@@ -8,13 +8,16 @@ import Profile from './pages/Profile'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
+import RightSidebarNewsWidget from './components/RightSidebarNewsWidget'
 
 function AppContent({ cartItems, setCartItems, handleAddToCart, cartCount, userLocation, setUserLocation }) {
   const navigate = useNavigate()
   const [selectedShop, setSelectedShop] = useState(null)
 
   return (
-    <Routes>
+    <>
+      <RightSidebarNewsWidget onOpenCart={() => navigate('/cart')} />
+      <Routes>
       <Route 
         path="/" 
         element={
@@ -91,6 +94,7 @@ function AppContent({ cartItems, setCartItems, handleAddToCart, cartCount, userL
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }
 

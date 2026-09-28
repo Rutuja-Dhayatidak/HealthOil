@@ -9,6 +9,8 @@ const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const cityRoutes = require("./routes/cityRoutes");
+const wishlistRoutes = require("./routes/wishlistRoutes");
+const rightSidebarNewsRoutes = require("./routes/rightSidebarNewsRoutes");
 
 const app = express();
 
@@ -21,11 +23,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/cities", cityRoutes);
+app.use("/api/admin/right-sidebar-news", rightSidebarNewsRoutes);
 app.use("/api/cities", cityRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/v1/vendor", vendorProductRoutes);
 app.use("/api/public", publicShopRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/uploads", express.static("uploads"));

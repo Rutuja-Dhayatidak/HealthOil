@@ -244,5 +244,47 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { sendOtp, registerUser, sendForgotPasswordOtp, resetPassword, getUserProfile, loginUser };
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const platform = req.user.platform || 'mobile';
+    const Model = getModel(platform);
+
+    // Delete user from database
+    const deletedUser = await Model.findByIdAndDelete(userId);
+
+    // Clean up cart and wishlist if models exist
+    try {
+      const Cart = require('../models/Cart');
+      await Cart.deleteMany({ user: userId });
+    } catch (e) {
+      console.log('Cart cleanup skipped:', e.message);
+    }
+
+    try {
+      const Wishlist = require('../models/Wishlist');
+      await Wishlist.deleteMany({ user: userId });
+    } catch (e) {
+      console.log('Wishlist cleanup skipped:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Account permanently deleted from database.'
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting account.' });
+  }
+};
+
+module.exports = { 
+  sendOtp, 
+  registerUser, 
+  sendForgotPasswordOtp, 
+  resetPassword, 
+  getUserProfile, 
+  loginUser,
+  deleteAccount 
+};
 

@@ -7,5 +7,8 @@ router.post('/create-razorpay-order', protect, orderController.createRazorpayOrd
 router.post('/verify-payment', protect, orderController.verifyPaymentAndCreateOrders);
 router.get('/my-orders', protect, orderController.getUserOrders);
 router.get('/track/:id', protect, orderController.trackOrder);
+router.get('/', protect, orderController.getUserOrders);
+router.get('/:id', protect, orderController.trackOrder);
 
 module.exports = router;
+
