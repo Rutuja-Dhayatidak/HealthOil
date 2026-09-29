@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getPublicShops, getPublicProducts } from '../services/shopService';
+import LatestNewsWidget from '../components/LatestNewsWidget';
 
 const HomeScreen = ({ onNavigateToStore, onNavigateToProduct, onNavigateToCart }: { onNavigateToStore?: (storeId: string) => void, onNavigateToProduct?: (productId: string) => void, onNavigateToCart?: () => void }) => {
   const [stores, setStores] = useState<any[]>([]);
@@ -182,6 +183,7 @@ const HomeScreen = ({ onNavigateToStore, onNavigateToProduct, onNavigateToCart }
       </ScrollView>
       <View style={{height: 80}} />
       </ScrollView>
+      <LatestNewsWidget onShopNow={() => onNavigateToCart && onNavigateToCart()} />
     </SafeAreaView>
   );
 };

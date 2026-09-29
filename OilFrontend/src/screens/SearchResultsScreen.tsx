@@ -549,42 +549,6 @@ const SearchResultsScreen: React.FC<SearchResultsScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Circular Categories Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-          contentContainerStyle={styles.categoriesRow}
-        >
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={styles.categoryCircleItem}
-                onPress={() => setSelectedCategory(cat.id)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.categoryCircleBadge,
-                    isSelected && styles.categoryCircleBadgeActive,
-                  ]}
-                >
-                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.categoryTitle,
-                    isSelected && styles.categoryTitleActive,
-                  ]}
-                >
-                  {cat.title}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
 
         {/* Filter Pills Row */}
         <ScrollView

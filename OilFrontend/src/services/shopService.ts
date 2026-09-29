@@ -29,3 +29,14 @@ export const getPublicProductDetails = async (id: string) => {
     return { success: false, message: 'Failed to fetch product details' };
   }
 };
+
+export const getPublicRightSidebarNews = async () => {
+  try {
+    const response = await api.get('/public/right-sidebar-news');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching right sidebar news:', error);
+    return { success: false, data: [] };
+  }
+};
+

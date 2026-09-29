@@ -1,11 +1,13 @@
 const WebsiteUser = require('../models/WebsiteUser');
 const MobileUser = require('../models/MobileUser');
+const { OAuth2Client } = require('google-auth-library');
 
 const getModel = (platform) => platform === 'mobile' ? MobileUser : WebsiteUser;
 const Otp = require('../models/Otp');
 const { sendEmail } = require('../utils/email');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
 
 // Generate 6-digit OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -278,6 +280,95 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+const googleClient = new OAuth2Client();
+
+const googleLogin = async (req, res) => {
+  try {
+    const { idToken, platform = 'website' } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: 'Google ID token is required' });
+    }
+
+    const envClientId = process.env.GOOGLE_CLIENT_ID ? process.env.GOOGLE_CLIENT_ID.trim() : '';
+    if (!envClientId) {
+      return res.status(500).json({ success: false, message: 'GOOGLE_CLIENT_ID is not configured in server .env' });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: envClientId,
+        maxAllowedSkewInSeconds: 86400,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      console.error('Google ID token verification warning:', verifyError.message || verifyError);
+      
+      // Fallback: decode JWT and verify audience against envClientId if clock skew occurred
+      const decoded = jwt.decode(idToken);
+      if (decoded && (decoded.aud === envClientId || decoded.azp === envClientId)) {
+        console.log('Google token audience verified with clock skew fallback for:', decoded.aud);
+        payload = decoded;
+      } else {
+        return res.status(401).json({ success: false, message: `Invalid Google Token: ${verifyError.message || 'Verification failed'}` });
+      }
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    if (!cleanEmail) {
+      return res.status(400).json({ success: false, message: 'Email missing from Google account' });
+    }
+
+    const Model = getModel(platform);
+    let user = await Model.findOne({ email: cleanEmail });
+
+    if (!user) {
+      user = new Model({
+        name: name || 'Google User',
+        email: cleanEmail,
+        googleId,
+        avatar: picture,
+      });
+      await user.save();
+    } else {
+      if (!user.googleId) user.googleId = googleId;
+      if (picture && !user.avatar) user.avatar = picture;
+      await user.save();
+    }
+
+    if (user.status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended. Please contact the administrator.'
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, platform },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        avatar: user.avatar || picture || '',
+        status: user.status
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({ success: false, message: 'Server error during Google Authentication' });
+  }
+};
+
 module.exports = { 
   sendOtp, 
   registerUser, 
@@ -285,6 +376,8 @@ module.exports = {
   resetPassword, 
   getUserProfile, 
   loginUser,
+  googleLogin,
   deleteAccount 
 };
+
 

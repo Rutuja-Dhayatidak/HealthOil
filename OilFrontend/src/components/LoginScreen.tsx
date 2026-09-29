@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { loginUser } from '../services/userService';
+import { loginUser, googleLoginUser } from '../services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, StyleSheet, TextInput, TouchableOpacity, Text, Dimensions, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Image, Animated } from 'react-native';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { config } from '../config';
+
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,6 +15,17 @@ const LoginScreen = ({ onBack, onNavigateToRegister, onNavigateToForgotPassword,
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    try {
+      GoogleSignin.configure({
+        webClientId: config.GOOGLE_WEB_CLIENT_ID,
+        offlineAccess: false,
+      });
+    } catch (err) {
+      console.log('GoogleSignin configure error:', err);
+    }
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -33,6 +48,51 @@ const LoginScreen = ({ onBack, onNavigateToRegister, onNavigateToForgotPassword,
       setLoading(false);
     }
   };
+
+  const handleGoogleLogin = async () => {
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignore if user wasn't logged in
+      }
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken || (response as any).idToken;
+
+      if (!idToken) {
+        setErrorMsg('Could not retrieve Google token');
+        setLoading(false);
+        return;
+      }
+
+      const res = await googleLoginUser({ idToken, platform: 'mobile' });
+      if (res.success && res.token) {
+        await AsyncStorage.setItem('userToken', res.token);
+        onNavigateToHome();
+      } else {
+        setErrorMsg(res.message || 'Google Login failed');
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        setErrorMsg('Google Sign-In was cancelled');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        setErrorMsg('Sign in is already in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setErrorMsg('Play services not available or outdated');
+      } else if (error.message?.includes('DEVELOPER_ERROR') || error.code === '10') {
+        setErrorMsg('Google Developer Error: Verify SHA-1 fingerprint and Package Name in Google Console.');
+      } else {
+        setErrorMsg(error.response?.data?.message || error.message || 'Google Sign-In failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -146,10 +206,11 @@ const LoginScreen = ({ onBack, onNavigateToRegister, onNavigateToForgotPassword,
             </View>
 
             {/* Google Button */}
-            <TouchableOpacity style={styles.googleBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.googleBtn} activeOpacity={0.8} onPress={handleGoogleLogin} disabled={loading}>
               <Text style={styles.googleIcon}>G</Text>
               <Text style={styles.googleBtnText}>Continue with Google</Text>
             </TouchableOpacity>
+
 
             {/* Register Link */}
             <View style={styles.registerRow}>

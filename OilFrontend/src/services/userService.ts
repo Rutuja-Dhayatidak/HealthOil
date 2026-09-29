@@ -15,7 +15,13 @@ export const loginUser = async (credentials: any) => {
   return response.data;
 };
 
+export const googleLoginUser = async (data: { idToken: string; platform?: string }) => {
+  const response = await api.post('/auth/google-login', { platform: 'mobile', ...data });
+  return response.data;
+};
+
 export const sendForgotPasswordOtp = async (email: string) => {
+
   const response = await api.post('/auth/forgot-password-otp', { email, platform: 'mobile' });
   return response.data;
 };
